@@ -150,11 +150,11 @@ They are always executed in the same order as written in the config file. If you
 
 ## Workflow
 1. Get SMDA reports from your malware pool. (https://github.com/danielplohmann/smda)
-2. Create a valid config file (set folders to smda reports and to your pool).
+2. Create a valid config file (set folders to smda reports and to your pool, etc).
 3. Start postgresql daemon
 4. Start capstone_server on port 12345
 5. Launch yara-signator (`java -jar target/yara-signator-0.0.1-SNAPSHOT-jar-with-dependencies.jar >> logfile.txt`)
-6. Monitor your config file: `tail -F logfile.txt`
+6. Monitor your log file: `tail -F logfile.txt`
 7. Check if capstone_server crashed, if yes, restart it
 
 ## FAQ
