@@ -146,8 +146,8 @@ IMPORTANT: Make sure you have not a database in postgres using the same name as 
 ```
 Those flags can be used to disable certains steps, for example the complete insertion of your smda files into the database. This can be used if an error occured in a later step and you want to save time.
 
-You can choose several rankers by writing just the name of the raanker defined in the ranking factory.
-You can choose different prefilters at the wildcardConfig section based on the name of the prefilters.
+You can choose several rankers by writing just the name of the ranker defined in the ranking factory.
+You can choose different prefilters at the wildcardConfig section based on the name of the prefilters (in another factory file).
 They are always executed in the same order as written in the config file. If you want to create custom filters and rankers, the factory files should be a good entry point. The design is very modular, so your should be able to integrate your own filters very quick by just creating a new class, adding it to the factory class and compile again. A real plugin interface for external jar/class files is a TODO.
 
 ## Workflow
