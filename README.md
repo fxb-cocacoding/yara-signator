@@ -157,9 +157,18 @@ They are always executed in the same order as written in the config file. If you
 6. Monitor your config file: `tail -F logfile.txt`
 7. Check if capstone_server crashed, if yes, restart it
 
+## FAQ
+Q: Why are there so many MongoDB classes if you do not even use a mongo database?
+A: This is currently a first commit, I left as much code as I had in the project. If someone is reading the BS thesis and wants to retrace the concept, the source code will be available at least in this commit.
+
+Q: This capstone_server is a C program, why don't you use the capstone bindings for JAVA like everyone else?
+A: I had some strange memory leaks (>10GB lost memory) when running many millions of opcodes against capstone over some hours. I couldn't fix them in JAVA and so I created a small program in C which communicates over TCP with other processes. If this process would have any memory leaks, you could simply restart it and the memory would be released back to the OS.
+
 ## Report
 The approach is described in detail in my BS thesis:
 http://cocacoding.com/papers/Automatic_Generation_of_code_based_YARA_Signatures.pdf <br />
 SHA512: <br /> 0384d6ec497cbfca2ec4a7739337088c8c859e86ca63339fd3d26c8be2176e3378210ac6cbd725d08a2f672e9cb2dcecc09eef2ec2dbc975de726b0b918795b2 <br />
 SHA256: <br />
 4f0530d0da48b394cb0798c434ffc70c33ae351e54c77454c87546d17ec52b60 <br />
+
+This project was mainly developed during the writing of the previously mentioned BS thesis. According to this I would like to thank Daniel Plohmann for his great support and helpful ideas during his supervision and beyond, especially regarding to this software project.
