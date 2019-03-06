@@ -44,7 +44,7 @@ mvn package
 Now you should have two (overwritten) jar-files in your target folder.
 
 ## Runtime dependencies
-For using yara-signator, you need a postgres database (I tested postgres-10 only) and capstone_server.
+For using yara-signator, you need a postgres database (I tested postgres-10 only) and capstone_server.<br />
 https://github.com/fxb-cocacoding/capstone_server<br />
 https://www.postgresql.org/<br />
 
@@ -149,7 +149,7 @@ You can choose different prefilters at the wildcardConfig section based on the n
 They are always executed in the same order as written in the config file. If you want to create custom filters and rankers, the factory files should be a good entry point. The design is very modular, so your should be able to integrate your own filters very quick by just creating a new class, adding it to the factory class and compile again. A real plugin interface for external jar/class files is a TODO.
 
 ## Workflow
-1. Get SMDA reports from your malware pool.
+1. Get SMDA reports from your malware pool. (https://github.com/danielplohmann/smda)
 2. Create a valid config file (set folders to smda reports and to your pool).
 3. Start postgresql daemon
 4. Start capstone_server on port 12345
