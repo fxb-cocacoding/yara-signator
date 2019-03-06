@@ -158,10 +158,10 @@ They are always executed in the same order as written in the config file. If you
 7. Check if capstone_server crashed, if yes, restart it
 
 ## FAQ
-Q: Why are there so many MongoDB classes if you do not even use a mongo database?
+Q: Why are there so many MongoDB classes if you do not even use a mongo database?<br />
 A: This is currently a first commit, I left as much code as I had in the project. If someone is reading the BS thesis and wants to retrace the concept, the source code will be available at least in this commit.
 
-Q: This capstone_server is a C program, why don't you use the capstone bindings for JAVA like everyone else?
+Q: This capstone_server is a C program, why don't you use the capstone bindings for JAVA like everyone else?<br />
 A: I had some strange memory leaks (>10GB lost memory) when running many millions of opcodes against capstone over some hours. I couldn't fix them in JAVA and so I created a small program in C which communicates over TCP with other processes. If this process would have any memory leaks, you could simply restart it and the memory would be released back to the OS.
 
 ## Report
