@@ -2,12 +2,14 @@
 Automatic YARA rule generation for Malpedia
 
 ## Disclaimer
-The software is running and compiles, but is not heavily tested. There is not written a single test yet. You probably should not use it on production systems. But it should provide interesting results at this point in time. If the following guide is not working, do not hesitate to contact me (here, mail, twitter, linked, etc). The next week and months, the software will improve (and the documentation, too).
+The software is running and compiles, but isn't heavily tested. There is not written a single test yet. You probably should not use it on production systems. But it should provide interesting results at this point in time. If the following guide is not working, do not hesitate to contact me (here, mail, twitter, linked, etc). The next week and months, the software will improve (and the documentation, too).
 
 A full run over all malpedia samples on a SATA-HDD without RAID and 20GB memory running yara-signator, capstone_server and postgres on the same device takes around 10h. The insertion takes around 3-4h, the database operations 4-6h and the YARA rule derivation around 2-3h.
 
 ## Hardware requirements:
-If you run postgres and yara-signator on one devide, I would recommend you to have at least 16GB memory and your system is nearly headless. postgres will be very slow with less than 8GB memory and yara-signator uses many threads and will consume up to 6GB memory very quick. If you set the threads to 1 you will have a very low memory usage but low performance.
+If you run postgres and yara-signator on one machine, I would recommend you to have at least 16GB memory and your system is nearly headless. Postgres will be very slow with less than 8GB memory and yara-signator uses many threads and will consume up to 6GB memory very quick. If you set the threads to 1 you will have a very low memory usage but low performance.
+
+The full chain will create database files up to 100GB very quickly, so you should have at least 100GB space left. The speed should be dramatically increased if your space is on faster storage.
 
 ## Getting started:
 If you want to build yara-signator, you need java 8 (or higher), maven, smda-reader and java2yara.
@@ -17,7 +19,7 @@ https://maven.apache.org/<br />
 https://github.com/fxb-cocacoding/smda-reader<br />
 https://github.com/fxb-cocacoding/java2yara<br />
 
-To compile yara-signator, you need only to copy the libraries smda-reader and java2yara into your local maven store (if you don't want to compile it yourself, there are binary files provided in target-folder):
+To compile yara-signator, you need only to copy the libraries smda-reader and java2yara into your local maven store (if you don't want to compile it yourself, there are binary files provided in the target-folder):
 
 ```
 git clone https://github.com/fxb-cocacoding/smda-reader.git
@@ -50,7 +52,7 @@ https://www.postgresql.org/<br />
 
 If you launch postgresql with default configuration (be sure that it runs on 127.0.0.1), you should have the user postgres and no password (currently one line is outcommented, it has password support in general). Yara-signator is able to populate the databases and tables itself, so there is nothing to change. In general, the postgres connection information and credentials are provided via the config file at `~/.yarasignator.conf `.
 
-Then you have to launch capstone_server, as it is currently the only supported disassembler backend. If you haven't build it yet, do it this way:
+Then you have to launch capstone_server, as it is currently the only supported disassembler backend. If you haven't build it yet, you can do it this way:
 ```
 git clone https://github.com/fxb-cocacoding/capstone_server.git
 cd capstone_server
@@ -61,7 +63,7 @@ make all
 ```
 
 ## Config file
-To use yara-signator, the tool will search for a configuration file located in your home folder called `.yarasignator.conf ` and is located in your . A sample file looks like this:
+To use yara-signator, the tool will search for a configuration file located in your home folder called `.yarasignator.conf`. A sample file looks like this:
 
 ```
 {
@@ -125,7 +127,7 @@ To use yara-signator, the tool will search for a configuration file located in y
 }
 ```
 
-IMPORTANT: Make sure you have not a database in postgres using the same name as mentioned in the config file. The first thing yara-signator will do is a database drop.
+IMPORTANT: Make sure you have not a database in postgres using the same name as mentioned in the config file. The first thing yara-signator will do is a database drop if you have not activated the `skipSMDAInsertions` using a `true` flag.
 
 ```
   "smda_path": "/home/user/yara-signator-testing/smda_reports/smda-malpedia/",
@@ -134,7 +136,7 @@ IMPORTANT: Make sure you have not a database in postgres using the same name as 
   "yaraBinary": "/usr/bin/yara",
   "yaracBinary": "/usr/bin/yarac",
 ```
-`smda_path` has to point to a folder containing all your smda reports of your samples. `alpedia_path` has to point to a folder containing your dumped samples. This folder is used to test the generated YARA rules (currently not working any more) against the malware you provided for YARA rule generation. As well have `yaraBinary` and `yaracBinary` to point to the location of your YARA installation. The `output_path` shows the tool where to store your results.
+`smda_path` has to point to a folder containing all your smda reports of your samples. `malpedia_path` has to point to a folder containing your dumped samples. This folder is used to test the generated YARA rules (currently not working any more) against the malware you provided for YARA rule generation. As well have `yaraBinary` and `yaracBinary` to point to the location of your YARA installation. The `output_path` shows the tool where to store your results.
 
 ```
   "skipSMDAInsertions": false,
