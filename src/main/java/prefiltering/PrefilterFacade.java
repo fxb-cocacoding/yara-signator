@@ -1,13 +1,9 @@
 package prefiltering;
 
 import java.util.List;
-import java.util.Random;
-
 import converters.ngrams.Ngram;
 import main.Config;
-import main.RankingConfig;
 import main.WildcardConfig;
-import ranking_system.RankingSystem;
 
 public class PrefilterFacade {
 	

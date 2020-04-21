@@ -9,30 +9,22 @@ import java.sql.Statement;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import aggregation_filter.FilterFactory;
 import converters.ngrams.Ngram;
-import disasm.CapstoneJavaBindings;
-import disasm.CapstoneServer;
-import disasm.DisassemblerInterface;
-import filter.FilterFactory;
 import main.Config;
-import main.Main;
 import main.WildcardConfig;
 import main.YaraRuleGenerator;
-import ranking_system.RankingSystemFacade;
-import smtx_handler.Instruction;
 import smtx_handler.SMDA;
-import statistics.yara_results.YaraStats;
 
 public class PostgresRequestUtils {
 
@@ -61,6 +53,7 @@ public class PostgresRequestUtils {
 		return false;
 	}
 
+	@Deprecated
 	public boolean areNgramsAlreadyInDatabase(SMDA smda, int n, Object object) {
 		// TODO Auto-generated method stub
 		return false;
@@ -111,8 +104,8 @@ public class PostgresRequestUtils {
 				+ "GROUP BY concat HAVING COUNT(DISTINCT family) = 1); "
 				+ "");
 		*/
-		PostgresConnection.INSTANCE.psql_connection.setAutoCommit(true);
 		
+		/*
 		String statement = ""
 				+ "INSERT INTO aggregated_" + n + "_part (SELECT concat, UNNEST(ARRAY_AGG(DISTINCT score)) AS score, UNNEST(ARRAY_AGG(DISTINCT family_id)) AS family_id, "
 				+ "ARRAY_AGG(DISTINCT samples.id) AS sample_id, "
@@ -121,11 +114,36 @@ public class PostgresRequestUtils {
 				+ "FROM ngrams_" + n + " JOIN samples ON samples.id=sample_id "
 				+ "GROUP BY concat HAVING COUNT(DISTINCT family_id) = 1) ;"
 				+ "";
+		 */
+		
+		String statement = ""
+				+ "INSERT INTO aggregated_" + n + "_part ("
+				+ "SELECT concat, "
+				+ "UNNEST(ARRAY_AGG(DISTINCT score)) AS score, "
+				+ "UNNEST(ARRAY_AGG(DISTINCT family_id)) AS family_id, "
+				+ "ARRAY_AGG(DISTINCT sample_id) AS sample_id, "
+				/*
+				 * Next step: remove occurence, we can use the array since the sub-queries are boosted by partitioning
+				 * use a computer generated column via function
+				 */
+				+ "cardinality(ARRAY_AGG(DISTINCT sample_id)) AS occurence "
+				
+			//	+ "bitness " bitness would be nice, but we do not have it. We lost it when doing the group by and mixing x86 and x64
+				+ "FROM ngrams_" + n + "_part "
+				+ "GROUP BY concat HAVING COUNT(DISTINCT family_id) = 1) ;"
+				+ "";
+		
 		
 		PreparedStatement pst = PostgresConnection.INSTANCE.psql_connection.prepareStatement(statement);
 		logger.info(statement);
 		pst.execute();
-		PostgresConnection.INSTANCE.psql_connection.setAutoCommit(false);
+		PostgresConnection.INSTANCE.psql_connection.commit();
+		
+		String alterStmt = "ALTER TABLE" + " aggregated_" + n + "_part " + "SET LOGGED;";
+		Statement st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+		logger.info(alterStmt);
+		st.execute(alterStmt);
+		PostgresConnection.INSTANCE.psql_connection.commit();
 	}
 
 
@@ -136,6 +154,36 @@ public class PostgresRequestUtils {
 		ResultSet rs = pst.getResultSet();
 		while(rs.next()) {
 			ret.add(rs.getString(1));
+		}
+		return ret;
+	}
+	
+	public List<String> getSamples(String family) throws SQLException {
+		List<String> ret = new ArrayList<String>();
+		PreparedStatement pst = PostgresConnection.INSTANCE.psql_connection.prepareStatement("SELECT family, "
+				+ "array_agg(filename) as filename, cardinality(array_agg(filename)) AS size "
+				+ "FROM families AS F JOIN samples AS S ON F.id=S.family_id WHERE family = ? GROUP BY family");
+		pst.setString(1, family);
+		pst.execute();
+		ResultSet rs = pst.getResultSet();
+		while(rs.next()) {
+			String[] a = (String[]) rs.getArray("filename").getArray();
+			for(int i=0; i<a.length; i++) {
+				ret.add(a[i]);
+			}
+		}
+		return ret;
+	}
+	
+	public List<Integer> getSampleIDsFromFamily(int family_id) throws SQLException {
+		List<Integer> ret = new ArrayList<Integer>();
+		PreparedStatement pst = PostgresConnection.INSTANCE.psql_connection.prepareStatement("select id from samples WHERE family_id = ?");
+		pst.setInt(1, family_id);
+		pst.execute();
+		ResultSet rs = pst.getResultSet();
+		while(rs.next()) {
+			int sample_id = rs.getInt("id");
+			ret.add(sample_id);
 		}
 		return ret;
 	}
@@ -151,176 +199,44 @@ public class PostgresRequestUtils {
 		return ret;
 	}
 
+	public long familyGetFilesize(int family_id) throws SQLException {
+		PreparedStatement pst = PostgresConnection.INSTANCE.psql_connection.prepareStatement("SELECT buffersize FROM samples WHERE family_id = ?");
+		pst.setInt(1, family_id);
+		pst.execute();
+		ResultSet rs = pst.getResultSet();
+		
+		long largest_filesize = 0;
+		
+		while(rs.next()) {
+			long ret = rs.getInt("buffersize");
+			
+			if(ret > largest_filesize) {
+				largest_filesize = ret;
+			}
+			
+		}
+
+		return largest_filesize;
+	}
 	
 	/*
 	 * Filter step
 	 * TODO: Refactor this into a real filter case, not inside the Database helper class
 	 */
-	public List<Ngram> getUniqueNgramsForFamily(int family_id, Config config) throws SQLException, DecoderException {
-		List<Ngram> ret = new ArrayList<>();
-		RankingSystemFacade ranker = new RankingSystemFacade();
-		
-		for(int i=4;i<=7;i++) {
-			//DisassemblerBinding disasm = new DisassemblerBinding();
-			DisassemblerInterface disasm = new CapstoneServer();
-			
-			boolean barrier = false;
-			while(barrier == false) {
-				try {
-					disasm.createHandle();
-					barrier = true;
-				} catch(java.net.SocketException e) {
-					logger.error("we should be here");
-					logger.error(e.getMessage());
-					try {
-						Thread.sleep(5000);
-						System.out.println("sleeping");
-					} catch (InterruptedException e1) {
-						// TODO Auto-generated catch block
-						e1.printStackTrace();
-					}
-				} catch (Exception e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}
-			PreparedStatement pst = PostgresConnection.INSTANCE.psql_connection.prepareStatement("SELECT * FROM aggregated_" + i + "_part WHERE family_id = ?");
-			pst.setInt(1, family_id);
-			logger.info(family_id + " - " + pst.toString());
-			pst.execute();
-			ResultSet rs = pst.getResultSet();
-			
-			int progress = 0;
-			
-			while(rs.next()) {
-				if(progress == config.instructionLimitPerFamily) {
-					logger.warn("family: " + family_id + " ran into the limit of " + config.instructionLimitPerFamily + "! Rule might be useless...");
-					break;
-				}
-				Ngram ngram = new Ngram(i);
-				//String familyFromDB = rs.getString("family");
-				int score = rs.getShort("score");
-				Integer[] filenamesFromDB = (Integer[]) rs.getArray("sample_id").getArray();
-				//int bitness = rs.getInt("bitness");
-				
-				//TODO: find the correct bitness
-				int bitness = 32;
-				int occurenceFromDB = rs.getInt("occurence");
-				String concatFromDB = rs.getString("concat");
-
-				//We have an empty entry at position [0] now, because the structure behind this looks like that: #e800000000#7505#7403#6c
-				String[] concat = concatFromDB.split("#");
-				
-				ArrayList<Instruction> instructions = new ArrayList<>(i);
-				for(int j=0; j<i; j++) {
-					Instruction ins = new Instruction();
-					int index = j+1;
-					/*
-					 * TODO: We lost Offset at the GROUP BY Operation. We need to get it back by querying the table -> sample_id with a join?
-					 * Still an expensive operation.
-					 */
-					ins.setOffset(0x00);
-					//System.out.println(concat[index]);
-					ins.setOpcodes(concat[index]);
-					
-					if(bitness == 32) {
-						List<String> al = null;
-						
-						while(al == null) {
-							try {
-								// replace all YARA wildcards with a zero to get some disassembly output
-								al = disasm.getDisassembly(32, 32, Hex.decodeHex(concat[index].replace('?', '0')));
-							} catch(java.net.SocketException | ExceptionInInitializerError e) {
-								logger.info("Is the server online?");
-								logger.info(e.getMessage());
-								try {
-									disasm.closeHandle();
-									disasm.createHandle();
-								} catch (Exception e2) {
-									logger.error("error when reinitializing the socket");
-									logger.error(e2.getMessage());
-								}
-								
-								try {
-									Thread.sleep(5000);
-								} catch (InterruptedException e1) {
-									// TODO Auto-generated catch block
-									logger.error(e1.getMessage());
-								}
-							} catch(Exception e) {
-								logger.error("a strange error occured");
-								logger.error(e.getMessage());
-							}
-						}
-
-						
-						
-						ins.setMnemonics(al);
-						//ins.setMnemonics(disasm.getMnemonics32(concat[index], 0x00));
-						//ins.setMnemonics(al);
-					} else if(bitness == 64) {
-						//ins.setMnemonics(disasm.getMnemonics64(concat[index], 0x00));
-					} else {
-						throw new UnsupportedOperationException();
-					}
-					//ins.setMnemonics(new ArrayList<>());
-					instructions.add(ins);
-				}
-				ngram.setNgramInstructions(instructions);
-				
-				ngram.score = score + occurenceFromDB * 100;
-				//System.out.println(instructions.toString());
-				
-				ret.add(ngram);
-				progress++;
-				if(progress%50000 == 0) {
-					logger.info(family_id + " - progress: " + progress);
-					if(config.rankingOptimizerEnabled == true) {
-						/*
-						 * TODO:
-						 * run filter for old while next db searches for next, multithreading?
-						 */
-						logger.info(family_id + " - running a ranking step now inside filtering step, keeping the results small...");
-						ret = ranker.rankingAction(ret, config);
-					}
-				}
-			}
-			
-			try {
-				disasm.closeHandle();
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			
-			if(config.rankingOptimizerEnabled == true) {
-				/*
-				 * TODO:
-				 * run filter for old while next db searches for next, multithreading?
-				 */
-				logger.info(family_id + " - running a ranking step now inside filtering step, keeping the results small...");
-				ret = ranker.rankingAction(ret, config);
-			}
-			
-		}
-		System.gc();
-		return ret;
-	}
 	
 	public void createPartitionedTables(Map<String, Integer> families, List<Integer> allN) throws SQLException {
 		Statement st;
-		PostgresConnection.INSTANCE.psql_connection.setAutoCommit(true);
 		boolean ret;
 		
 		for(int n : allN) {
-			String statement = "CREATE TABLE IF NOT EXISTS aggregated_" + n 
+			String statement = "CREATE UNLOGGED TABLE IF NOT EXISTS aggregated_" + n 
 					+ "_part (concat text, score SMALLINT, family_id integer, sample_id integer[], occurence SMALLINT) PARTITION BY LIST(family_id);";
 			
 			st = PostgresConnection.INSTANCE.psql_connection.createStatement();
 			logger.info(statement);
 			ret = st.execute(statement);
 			st.close();
-			
+			PostgresConnection.INSTANCE.psql_connection.commit();
 			for(int s: families.values()) {
 				
 				statement = "CREATE TABLE IF NOT EXISTS aggregated_" + n + "_part_" + s + " PARTITION OF aggregated_" + n + "_part FOR VALUES IN (" + s + ");";
@@ -336,17 +252,16 @@ public class PostgresRequestUtils {
 				ret = st.execute(statement);
 				
 				st.close();
+				PostgresConnection.INSTANCE.psql_connection.commit();
 			}
 			
 		}
 		
-		PostgresConnection.INSTANCE.psql_connection.setAutoCommit(false);
 		
 	}
 
 	public void dropPartitionedTables(Map<String, Integer> families, List<Integer> allN) throws SQLException {
 		Statement st;
-		PostgresConnection.INSTANCE.psql_connection.setAutoCommit(true);
 		String statement;
 		
 		for(int n: allN) {
@@ -356,23 +271,20 @@ public class PostgresRequestUtils {
 				logger.info(statement);
 				st.execute(statement);
 				st.close();
+				PostgresConnection.INSTANCE.psql_connection.commit();
 			}
 			statement = "DROP TABLE IF EXISTS aggregated_" + n + "_part;";
 			st = PostgresConnection.INSTANCE.psql_connection.createStatement();
 			logger.info(statement);
 			st.execute(statement);
 			st.close();
+			PostgresConnection.INSTANCE.psql_connection.commit();
 		}
 		
-		PostgresConnection.INSTANCE.psql_connection.setAutoCommit(false);
 		
 	}
-
 	
     public void firstInsertions(Config config, File[] allSmdaFiles, long minInstructions, boolean firstInsertion) {
-    	/*
-		 * Write all smda files into ngrams into database
-		 */
 		logger.info("Starting with all initial insertions, dropping all tables. PRESS CTRL-C if you wish to abort!");
 		for(int i=0;i<20;i++) {
 			System.out.print(".");
@@ -383,7 +295,6 @@ public class PostgresRequestUtils {
 				e.printStackTrace();
 			}
 		}
-		System.out.println("");
 		doFirstInsert(config, allSmdaFiles, config.minInstructions, firstInsertion);
     }
     
@@ -418,7 +329,26 @@ public class PostgresRequestUtils {
 		for(String family: families) {
 			counter++;
 			int family_id = familiesWithID.get(family);
-			Runnable worker = new YaraRuleGenerator(family, family_id, config, dtf, now, counter, families.size());
+			
+			//TODO optimize this via one query!
+			
+			long filesize = 0;
+			try {
+				filesize = new PostgresRequestUtils().familyGetFilesize(family_id);
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+			String condition = "7 of them";
+			if(filesize > 0) {
+				condition += " and filesize < " + Long.toString(filesize*2);
+			}
+			
+			
+			List<Ngram> ngrams = null;
+			Runnable worker = new YaraRuleGenerator(family, family_id, config, null, dtf, now, counter, families.size(),
+					condition, null);
 			executorService.execute(worker);
 		}
 		
@@ -429,19 +359,78 @@ public class PostgresRequestUtils {
 		logger.info("\nFinished all threads");
 	}
 
-	public void validateYaraRules(final DateTimeFormatter dtf, LocalDateTime now, Config config,
-			String cmd_yarac, String cmd_yara) {
-		new YaraStats().validate(dtf, now, config, cmd_yarac, cmd_yara);
+	public void generateYaraRuleNG(Config config, final DateTimeFormatter dtf, LocalDateTime now,
+			String dateFolder, List<String> families, String condition, Map<String, List<Ngram>> ngramsForFamilies) {
+		
+		Map<String, Integer> familiesWithID = null;
+		
+		try {
+			familiesWithID = new PostgresRequestUtils().getFamiliesWithIDs();
+		} catch (SQLException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		
+		logger.info("Writing YARA rules for these families now...");
+		logger.info(families.toString());
+		logger.info(ngramsForFamilies.toString());
+		int counter = 0;
+		
+		
+		ExecutorService executorService = Executors.newFixedThreadPool(config.rulebuilder_threads);
+		for(String s: families) {
+			counter++;
+			int family_id = familiesWithID.get(s);
+			List<Ngram> ngrams = ngramsForFamilies.get(s);
+			
+			//TODO optimize this via one query!
+			
+			long filesize = 0;
+			try {
+				filesize = new PostgresRequestUtils().familyGetFilesize(family_id);
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+			StringBuilder yaraCondition = new StringBuilder();
+			yaraCondition.append(condition);
+			if(filesize > 0) {
+				yaraCondition.append(" and filesize < " + Long.toString(filesize*2));
+			}
+
+			
+			logger.info("Generating rule for family: " + family_id + " (" + s + ") - " + counter + "/" + families.size());
+			logger.info("with condition: " + yaraCondition.toString());
+			Runnable worker = new YaraRuleGenerator(s, family_id, config, null, dtf, now, counter, families.size(), yaraCondition.toString(), ngrams);
+			executorService.execute(worker);
+		}
+		
+		executorService.shutdown();
+		while (!executorService.isTerminated()) {
+			continue;
+		}
+		
+		logger.info("\nFinished all threads");
+		
 	}
+	
 
 	public static void doFirstInsert(Config config, File[] allSmdaFiles, long minInstructions, boolean firstInsertion) {		
 		try {
 			new HandleStructures().dropAll();
+		} catch(SQLException e) {
+			e.printStackTrace();
+		}
+		logger.info("dropping done");
+		
+		try {
 			new HandleStructures().init();
 		} catch(SQLException e) {
 			e.printStackTrace();
 		}
 		logger.info("init done");
+
 		
 		ExecutorService executorService = Executors.newFixedThreadPool(config.insertion_threads);
 		for(int i=0; i<allSmdaFiles.length; i++) {
@@ -458,7 +447,21 @@ public class PostgresRequestUtils {
 		}
 		logger.info("\nFinished all threads");
 
+		for(int n: config.getNs()) {
+			String alterStmt = "ALTER TABLE" + " ngrams_" + n + "_part " + "SET LOGGED;";
+			try {
+				Statement st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+				logger.info(alterStmt);
+				st.execute(alterStmt);
+				PostgresConnection.INSTANCE.psql_connection.commit();
+			} catch(SQLException e) {
+				logger.error("Exception when setting " + alterStmt + " - this might be fatal.");
+				logger.error(e.getLocalizedMessage());
+			}
+		}
 		/*
+		 * useful: \d+
+		 * 
 		 * get the size of all tables in portgres:
 		 * 
 			SELECT nspname || '.' || relname AS "relation",
@@ -473,6 +476,7 @@ public class PostgresRequestUtils {
 	}
 	
     public void setup_db_handler(Config config) throws SQLException {
+
     	StringBuilder sb = new StringBuilder();
 		if(config.wildcardConfigEnabled) {
 			for(WildcardConfig wc : config.getWildcardConfigConfig()) {
@@ -481,17 +485,23 @@ public class PostgresRequestUtils {
 				sb.append(wc.wildcardOperator);
 			}
 		}
-		PostgresConnection.INSTANCE.psql_connection.setAutoCommit(true);
+		
 		Statement st = PostgresConnection.INSTANCE.psql_connection.createStatement();
 		try {
 			st.execute("CREATE DATABASE " + config.db_name + sb.toString());
+			//PostgresConnection.INSTANCE.psql_connection.commit();
 		} catch (SQLException e) {
 			logger.error(e.getMessage());
 			if(e.getMessage().contains("already exist")) logger.error("ALREADY EXIST IS OKAY");
+			if(e.getMessage().contains("does not exist")) {
+				logger.error("database was not created");
+				throw new UnsupportedOperationException();
+			}
 		}
-		PostgresConnection.INSTANCE.psql_connection.setAutoCommit(false);
 		
 		PostgresConnection.INSTANCE.setConnection(config.db_user , config.db_password, config.db_connection_string, config.db_name + sb.toString());
+
+		
 		/*
 		 * testing start
 		 */
@@ -505,6 +515,28 @@ public class PostgresRequestUtils {
 		 * testing end
 		 */
 	}
+
+	public HashMap<String, List<String>> getSamplesForFamilies() throws SQLException {
+		final String query = "SELECT family, array_agg(filename) as filename, cardinality(array_agg(filename)) AS size "
+				+ "FROM families AS F JOIN samples AS S ON F.id=S.family_id GROUP BY family ORDER BY size DESC;";
+		HashMap<String, List<String>> ret = new HashMap<>();
+
+		PreparedStatement pst = PostgresConnection.INSTANCE.psql_connection.prepareStatement(query);
+		pst.execute();
+		ResultSet rs = pst.getResultSet();
+		while(rs.next()) {
+			String family = rs.getString("family");
+			Array filename_array = rs.getArray("filename");
+			String[] filename = (String[]) filename_array.getArray();
+			int size = rs.getInt("size");
+			List<String> filename_insertion = Arrays.asList(filename);
+			
+			ret.put(family, filename_insertion);
+		}
+
+		return ret;
+	}
+
 
 
 }

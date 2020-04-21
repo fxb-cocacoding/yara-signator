@@ -1,33 +1,28 @@
 package postgres;
 
 import java.io.File;
-import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.gson.JsonSyntaxException;
 
 import converters.ConverterFactory;
+import converters.linearization.Linearization;
 import converters.ngrams.Ngram;
 import json.Generator;
 import main.Config;
-import main.Insertion;
-import main.Main;
-import mongodb.MongoDataAdapter;
-import mongodb.MongoHandler;
 import prefiltering.PrefilterFacade;
-import prefiltering.PrefilterSystem;
 import smtx_handler.Instruction;
+import smtx_handler.Meta;
 import smtx_handler.SMDA;
 
 public class PostgresInsertNgrams implements Runnable {
@@ -56,11 +51,36 @@ public class PostgresInsertNgrams implements Runnable {
 		
 		SMDA smda = null;
 		try {
-			smda = new Generator().generateSMDA(allSmdaFiles[i].getAbsolutePath());	
+			smda = new Generator().generateSMDA(allSmdaFiles[i].getAbsolutePath());
+			
+			String family;
+			
+			if(smda.getMeta() == null) {
+				logger.error("No MetaData found. Faulty smda report!");
+				logger.error("smda: " + smda.toString());
+				return;
+			}
+			
+			if(smda.getMeta().getFamily() != null) {
+				family = smda.getMeta().getFamily();
+			} else if(smda.getFamily() != null) {
+				family = smda.getFamily();
+			} else {
+				logger.error("No family name found. Faulty smda report!");
+				logger.error("smda: " + smda.toString());
+				return;
+			}
+			
 			//hooking the field for legacy reasons since SMDA has new format.
-			smda.setFamily(smda.getMeta().getFamily());
+			smda.setFamily(family);
+			
+			logger.info(smda.getMeta().toString());
+			
+			// Fix Filenames:
 			if(smda.getFilename() == null || smda.getFilename().isEmpty()) {
+				
 				if(smda.getMeta().getMalpedia_filepath() != null && !smda.getMeta().getMalpedia_filepath().isEmpty()) {
+					
 					String f = smda.getMeta().getMalpedia_filepath();
 					f = f.substring(f.lastIndexOf("/")+1, f.length());
 					smda.setFilename(f);
@@ -68,18 +88,33 @@ public class PostgresInsertNgrams implements Runnable {
 							+ " has an empty filename, we fixed it using the malpedia_filepath entry " 
 							+ f);
 				
-				} else if((smda.getMeta().getMalpedia_filepath().isEmpty() || smda.getMeta().getMalpedia_filepath() == null)) {
+				} else {
 					String f = allSmdaFiles[i].getAbsolutePath();
-					f = f.substring(f.lastIndexOf("/")+1, f.length());
-					smda.setFilename(f);
-					logger.warn("sample for family " + smda.getFamily() 
+					String filename = f.substring(f.lastIndexOf("/")+1, f.length());
+					
+					smda.setFilename(filename);
+					
+					logger.info("fix filename: " + filename + "  smda: " + smda.getSummary().toString());
+					logger.warn("sample for family " + smda.getFamily()
 							+ " has no valid name info in both fields. use the file system name: " 
 							+ f);
-					
 				}
+				
 			}
-		} catch(IllegalStateException | JsonSyntaxException e) {
+			
+			//Fix or handle malpedia_path
+			if(smda.getMeta().getMalpedia_filepath() == null || smda.getMeta().getMalpedia_filepath().isEmpty()) {
+				
+				Meta m = smda.getMeta();
+				m.setMalpedia_filepath("");
+				
+				logger.warn("the following smda file is not from malpedia or is faulty: " + smda.getSummary().toString());
+			}
+			
+		} catch(IllegalStateException | JsonSyntaxException | NullPointerException e) {
 			e.printStackTrace();
+			logger.debug(e.getLocalizedMessage());
+			logger.debug("smda: " + smda.toString());
 			return;
 		}
 		/*
@@ -105,24 +140,37 @@ public class PostgresInsertNgrams implements Runnable {
 		/*
 		 * Linearize the disassembly.
 		 */
-		List<List<Instruction>> linearized = new ConverterFactory().getLinearized(smda);
+		Linearization linearized = new ConverterFactory().getLinearized(smda);
 		
 		
 		/*
 		 * Build the n-grams for each n:
 		 */
 		ArrayList<Integer> allN = config.getNs();
-		
 		List<Ngram> ngrams = null;
 		
 		int family_id = writeFamilyToDatabase(smda);
+		
+		
 		int sample_id = writeSampleToDatabase(smda, family_id);
+		
+		
+		
 		if(sample_id == 0) {
 			System.out.println("Error: sample_id should never be zero!");
 		}
 		
+		// Debugging the count of ngrams for various n
+		Map<Integer, Integer> counter = new HashMap<Integer, Integer>();
+		
 		//System.out.println("start n");
 		for(int n : allN) {
+			
+			/*
+			 * ACTIVATE ONLY IF YOU WANT A PARTITIONED NGRAM_4 TABLE.
+			 */
+			//createPartitionedNgramTable(family_id, n);
+			
 			ngrams = new ConverterFactory().calculateNgrams("createWithoutOverlappingCodeCaves", linearized, n);
 			
 			if(config.wildcardConfigEnabled) {
@@ -144,20 +192,60 @@ public class PostgresInsertNgrams implements Runnable {
 				System.out.println("no ngrams detected, got null in " + smda.getFilename());
 				continue;
 			}
-			writeNgramsToDatabase(smda, ngrams, n, config.batchSize, sample_id);
+			logger.info("Writing ngrams_" + n + " (size: " + ngrams.size() + ") for " + smda.getFamily() + " - " + smda.getFilename() + " into db.");
+			counter.put(n, ngrams.size());
+			writeNgramsToDatabase(smda, ngrams, n, config.batchSize, sample_id, family_id);
 		}
 		
-		System.out.println("[INSERTION_STEP] Progress: " + (int)(( (float) (i + 1) / allSmdaFiles.length)*100.0) + "% - " + "Step: " + (i + 1) + "/" + allSmdaFiles.length +
+		logger.info("[INSERTION_STEP] Progress: " + (int)(( (float) (i + 1) / allSmdaFiles.length)*100.0) + "% - " + "Step: " + (i + 1) + "/" + allSmdaFiles.length +
 				" - Sample: " + smda.getFamily() +
 				" " + smda.getFilename() + " " + smda.getArchitecture() + " " + smda.getBitness());
+		logger.info("Ngram stats: " + counter.toString());
 	}
 
+	public void createPartitionedNgramTable(int family_id, int n) throws SQLException {
+		/*
+		 * 
+		 * TODO: IMPLEMENT THIS IN THE NGRAM CREATION STEP!
+		 * 
+		 * 
+		 */
+		Statement st;
+		String statement;
+			
+				
+		statement = "CREATE TABLE IF NOT EXISTS ngrams_" + n + "_part_" + family_id + " PARTITION OF ngrams_" + n + "_part FOR VALUES IN (" + family_id + ");";
+		st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+		logger.info(statement);
+		st.execute(statement);
+		st.close();
+		
+		//statement = "ALTER TABLE ngrams_" + n + "_part_" + family_id + 
+		//		" ADD CONSTRAINT ngrams_" + n + "_part_" + family_id + " CHECK( family_id = " + family_id + ");";
+		
+		//create_constraint_if_not_exists (t_name text, c_name text, constraint_sql text)
+		statement = "SELECT create_constraint_if_not_exists('ngrams_" + n + "_part_" + family_id + "',"
+						+ "'ngrams_" + n + "_part_" + family_id + "',"
+						+ "'CHECK( family_id = " + family_id + ");');";
+		
+		st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+		logger.info(statement);
+		st.execute(statement);
+		st.close();
+		
+		PostgresConnection.INSTANCE.psql_connection.commit();		
+	}
+
+	
 	private int writeSampleToDatabase(SMDA smda, int family_id) throws SQLException {
 		PreparedStatement pst = PostgresConnection.INSTANCE.psql_connection.prepareStatement("INSERT INTO samples ("
 				+ "family_id , architecture , base_addr , status"
 				+ ", num_api_calls , num_basic_blocks , num_disassembly_errors , num_function_calls , num_functions"
 				+ ", num_instructions , num_leaf_functions , num_recursive_functions ,"
-				+ "timestamp , hash , filename, bitness) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING RETURNING id;", Statement.RETURN_GENERATED_KEYS);
+				+ "timestamp , hash , filename, bitness, buffersize, malpedia_filepath) VALUES (?,?,?,?"
+				+ ",?,?,?,?,?"
+				+ ",?,?,?"
+				+ ",?,?,?,?,?,?) ON CONFLICT DO NOTHING RETURNING id;", Statement.RETURN_GENERATED_KEYS);
 				
 		//pst.setString(1, smda.getFamily());
 		pst.setInt(1, family_id);
@@ -167,7 +255,14 @@ public class PostgresInsertNgrams implements Runnable {
 		
 		pst.setLong(5, smda.getSummary().getNum_api_calls());
 		pst.setLong(6, smda.getSummary().getNum_basic_blocks());
-		pst.setLong(7, smda.getSummary().getNum_disassembly_errors());
+		
+		/*
+		 * We are currently only interested in the disassembly failed functions,
+		 * although interested is not really the right word, we just save them.
+		 */
+		
+		pst.setLong(7, smda.getSummary().getNum_disassembly_failed_functions());
+		
 		pst.setLong(8, smda.getSummary().getNum_function_calls());
 		pst.setLong(9, smda.getSummary().getNum_functions());
 		pst.setLong(10, smda.getSummary().getNum_instructions());
@@ -178,7 +273,11 @@ public class PostgresInsertNgrams implements Runnable {
 		pst.setString(14, smda.getSha256());
 		pst.setString(15, smda.getFilename());
 		pst.setLong(16, smda.getBitness());
+		pst.setLong(17, smda.getBuffer_size());
+		pst.setString(18, smda.getMeta().getMalpedia_filepath());
+		
 		int rowsModified = pst.executeUpdate();
+		
 		ResultSet rs = pst.getGeneratedKeys();
 		int returnID = 0;
 		if(rs.next()) {
@@ -194,7 +293,9 @@ public class PostgresInsertNgrams implements Runnable {
 	private int writeFamilyToDatabase(SMDA smda) throws SQLException {
 		PreparedStatement pst = PostgresConnection.INSTANCE.psql_connection.prepareStatement("INSERT INTO families (family) VALUES (?) ON CONFLICT DO NOTHING RETURNING id;", Statement.RETURN_GENERATED_KEYS);
 		pst.setString(1, smda.getFamily());
+		
 		int rowsModified = pst.executeUpdate();
+		
 		ResultSet rs = pst.getGeneratedKeys();
 		int returnID = 0;
 		if(rs.next()) {
@@ -211,18 +312,40 @@ public class PostgresInsertNgrams implements Runnable {
 				throw new SQLException("no return ID could be found for " + smda.getFamily() + " - " + smda.getFilename());
 			}
 		}
-		if(returnID == 0) throw new SQLException("no return ID could be found for " + smda.getFamily() + " - " + smda.getFilename());
+		if(returnID == 0) {
+			throw new SQLException("no return ID could be found for " + smda.getFamily() + " - " + smda.getFilename());
+		}
+		
 		return returnID;
 	}
 
-	private void writeNgramsToDatabase(SMDA smda, List<Ngram> ngrams, int n, int batchSize, int sample_id) throws SQLException {
+	private void writeNgramsToDatabase(SMDA smda, List<Ngram> ngrams, int n, int batchSize, int sample_id, int family_id) throws SQLException {
+		
+		
+		/*
+		 * Table Design:
+		 * 
+		 * 	
+		 	
+		 	private final String createNgramTable = "CREATE TABLE IF NOT EXISTS ngrams ("
+			+ "score SMALLINT,"
+			+ "sample_id INTEGER NOT NULL REFERENCES samples(id) ON DELETE CASCADE,"
+			+ "family_id INTEGER NOT NULL REFERENCES samples(family_id) ON DELETE CASCADE,"
+			+ "concat TEXT NOT NULL,"
+			+ "addr_offset BIGINT NOT NULL"
+			+ ") PARTITION BY LIST(family_id);";
+			
+			
+		 * 
+		 */
+		
 		
 		String insertIntoNgrams = "INSERT INTO "			//					ARRAY		ARRAY			ARRAY
-				+ "ngrams (concat, sample_id, score, addr_offset) "
+				+ "ngrams (concat, sample_id, family_id, score) "
 				+ "VALUES (?,?,?,?)";
 
-		insertIntoNgrams = insertIntoNgrams.replace("ngrams", "ngrams_" + n);
-				
+		insertIntoNgrams = insertIntoNgrams.replace("ngrams", "ngrams_" + n + "_part");
+		
 		//PostgresConnection.INSTANCE.psql_connection.setAutoCommit(false);
 		PreparedStatement pstIntoNgramsTable = PostgresConnection.INSTANCE.psql_connection.prepareStatement(insertIntoNgrams);
 		
@@ -232,11 +355,14 @@ public class PostgresInsertNgrams implements Runnable {
 			
 			String concat = "";
 			//Long[] addr_offset = new Long[n];
+			
 			long addr_offset = ngram.getNgramInstructions().get(0).getOffset();
+			
 			//String[] mnemonic_one = new String[n];
 			//String[] mnemonic_two = new String[n];
 			
 			int count = 0;
+			
 			for(Instruction i: ngram.getNgramInstructions()) {
 				concat += "#" + i.getOpcodes();
 				//addr_offset[count] = i.getOffset();
@@ -251,10 +377,11 @@ public class PostgresInsertNgrams implements Runnable {
 			//pst.setString(4, smda.getSha256());
 			//pst.setShort(4, (short) n);
 			pstIntoNgramsTable.setInt(2, sample_id);
-			pstIntoNgramsTable.setShort(3, (short)0);
-			pstIntoNgramsTable.setLong(4, addr_offset);
+			pstIntoNgramsTable.setInt(3, family_id);
+			pstIntoNgramsTable.setShort(4, (short)0);
+			//pstIntoNgramsTable.setLong(5, addr_offset);
 			//pst.setArray(6,  PostgresConnection.INSTANCE.psql_connection.createArrayOf("bigint", addr_offset));
-			//pst.setArray(7,  Postg)resConnection.INSTANCE.psql_connection.createArrayOf("text", mnemonic_one));
+			//pst.setArray(7,  PostgresConnection.INSTANCE.psql_connection.createArrayOf("text", mnemonic_one));
 			//pst.setArray(8,  PostgresConnection.INSTANCE.psql_connection.createArrayOf("text", mnemonic_two));
 			
 			try {
@@ -265,7 +392,7 @@ public class PostgresInsertNgrams implements Runnable {
 			
 			if(batchCounter%10000 == 0) {
 				pstIntoNgramsTable.executeBatch();
-				//PostgresConnection.INSTANCE.psql_connection.commit();
+				PostgresConnection.INSTANCE.psql_connection.commit();
 			}
 			
 		}

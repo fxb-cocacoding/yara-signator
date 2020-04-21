@@ -22,7 +22,7 @@ public class FileFinder {
 			if(s.endsWith(".txt")) continue;
 			if(s.endsWith(".yar")) continue;
 			if(s.endsWith(".yara")) continue;
-			//if(s.contains("win.")) continue;
+			if(!(s.contains("win.") || s.contains("osx.") || s.contains("elf.") )) continue;
 			allFiles.add(s);
 		}
 		return allFiles;

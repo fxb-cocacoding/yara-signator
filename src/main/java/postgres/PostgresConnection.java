@@ -5,9 +5,6 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
-import com.mongodb.MongoClient;
-import com.mongodb.client.MongoDatabase;
-
 public enum PostgresConnection {
 	
 	/*
@@ -26,9 +23,10 @@ public enum PostgresConnection {
 		try {
 			//Connection conn = DriverManager.getConnection(url, props);
 			psql_connection = DriverManager.getConnection(url, props);
-			psql_connection.setAutoCommit(false);
+			//psql_connection.setAutoCommit(false);
 		} catch (SQLException e) {
 			// TODO Auto-generated catch block
+			System.out.println("Error in Postgres Connection, this might be fatal.");
 			e.printStackTrace();
 		}
 	}
@@ -41,16 +39,16 @@ public enum PostgresConnection {
 		final String url = dbString + db;
 		Properties props = new Properties();
 		props.setProperty("user",user);
-		//if(passwd != null && !passwd.isEmpty()) {
-		//	props.setProperty("password", passwd);
-		//}
+		if(passwd != null && !passwd.isEmpty()) {
+			props.setProperty("password", passwd);
+		}
 		try {
 			//Connection conn = DriverManager.getConnection(url, props);
 			psql_connection.close();
 			psql_connection = DriverManager.getConnection(url, props);
 			psql_connection.setAutoCommit(false);
 		} catch (SQLException e) {
-			// TODO Auto-generated catch block
+			System.out.println("Error in Postgres setConnection, this might be fatal.");
 			e.printStackTrace();
 		}
 	}

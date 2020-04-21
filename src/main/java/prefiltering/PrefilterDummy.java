@@ -1,7 +1,5 @@
 package prefiltering;
 
-import java.util.List;
-
 import converters.ngrams.Ngram;
 
 public class PrefilterDummy extends Prefilter {

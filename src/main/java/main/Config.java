@@ -2,7 +2,6 @@ package main;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
-import java.util.List;
 
 public class Config {
 	
@@ -20,6 +19,9 @@ public class Config {
 	public String output_path = "/absolute/path/to/your/output/";
 	public String yaraBinary = "/usr/bin/yara";
 	public String yaracBinary = "/usr/bin/yarac";
+	public String malpediaEvalScript = "";
+	public String malpediaEvalScriptOutput = "/tmp/95268496.json";
+	public String resumeFolder = "";
 	
 	public String db_connection_string = "jdbc:postgresql://127.0.0.1/";
 	public String db_user = "postgres";
@@ -30,6 +32,7 @@ public class Config {
 	public boolean skipYaraRuleGeneration = false;
 	public boolean skipUniqueNgramTableCreation = false;
 	public boolean skipRuleValidation = false;
+	public boolean skipNextGen = false;
 	
 	public int insertion_threads = 16;
 	public int rulebuilder_threads = 8;
@@ -38,6 +41,10 @@ public class Config {
 	public long minInstructions = 10;
 	public int batchSize = 5000;
 	public int instructionLimitPerFamily = 750000;
+	public int ng_recursion_limit = 5;
+	
+	public boolean reportStatistics = true;
+	public String reportFileName = "report.csv";
 	
 	public boolean duplicatesInsideSamplesEnabled = false;
 	public boolean wildcardConfigEnabled = true;
@@ -47,8 +54,15 @@ public class Config {
 	
 	private LinkedList<WildcardConfig> wildcardConfig = new LinkedList<>();
 	private LinkedList<RankingConfig> rankingConfig = new LinkedList<>();
+	private LinkedList<NextGenConfig> nextGenConfig = new LinkedList<>();
 	private ArrayList<Integer> n = new ArrayList<>();
 
+	public LinkedList<NextGenConfig> getNextGenConfig() {
+		return nextGenConfig;
+	}
+	public void setNextGenConfig(LinkedList<NextGenConfig> nextGenConfig) {
+		this.nextGenConfig = nextGenConfig;
+	}
 	public LinkedList<RankingConfig> getRankingConfig() {
 		return rankingConfig;
 	}
@@ -85,5 +99,6 @@ public class Config {
 	 * Deprecated mongo constants
 	 */
 	public int mongoQueryBufferSize = 20000;
-	
+	public boolean reduceInputForDebugging = false;
+	public boolean permitOverlappingNgrams = true;
 }

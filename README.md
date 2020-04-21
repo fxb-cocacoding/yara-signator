@@ -25,14 +25,14 @@ To compile yara-signator, you need only to copy the libraries smda-reader and ja
 git clone https://github.com/fxb-cocacoding/smda-reader.git
 cd smda-reader
 mvn package
-mvn install:install-file -Dfile=target/smda-reader-0.0.1-SNAPSHOT.jar -DpomFile=pom.xml
+mvn install:install-file -Dfile=target/smda-reader-0.3.0-SNAPSHOT.jar -DpomFile=pom.xml
 ```
 and
 ```
 git clone https://github.com/fxb-cocacoding/java2yara.git
 cd java2yara
 mvn package
-mvn install:install-file -Dfile=target/java2yara-0.0.1-SNAPSHOT.jar -DpomFile=pom.xml
+mvn install:install-file -Dfile=target/java2yara-0.3.0-SNAPSHOT.jar -DpomFile=pom.xml
 ```
 
 Then you can compile yara-signator:
@@ -46,11 +46,11 @@ mvn package
 Now you should have two (overwritten) jar-files in your target folder.
 
 ## Runtime dependencies
-For using yara-signator, you need a postgres database (I tested postgres-10 only) and capstone_server.<br />
+For using yara-signator, you need a postgres database (I tested postgres-11 currently, but 12 should also work) and capstone_server.<br />
 https://github.com/fxb-cocacoding/capstone_server<br />
 https://www.postgresql.org/<br />
 
-If you launch postgresql with default configuration (be sure that it runs on 127.0.0.1), you should have the user postgres and no password (currently one line is outcommented, it has password support in general). Yara-signator is able to populate the databases and tables itself, so there is nothing to change. In general, the postgres connection information and credentials are provided via the config file at `~/.yarasignator.conf `.
+If you launch postgresql with default configuration (be sure that it runs on 127.0.0.1), you should have the user postgres and no password (currently one line is commented out, it has password support in general). Yara-signator is able to populate the databases and tables itself, so there is nothing to change. In general, the postgres connection information and credentials are provided via the config file at `~/.yarasignator.conf `.
 
 Then you have to launch capstone_server, as it is currently the only supported disassembler backend. If you haven't build it yet, you can do it this way:
 ```
@@ -66,32 +66,41 @@ make all
 To use yara-signator, the tool will search for a configuration file located in your home folder called `.yarasignator.conf`. A sample file looks like this:
 
 ```
-{
-  "smda_path": "/home/user/yara-signator-testing/smda_reports/smda-malpedia-large-2019-02-04/",
-  "malpedia_path": "/home/user/yara-signator-testing/malpedia/",
-  "output_path": "/home/user/yara-signator-testing/yara_output/",
-  "yaraBinary": "/usr/bin/yara",
-  "yaracBinary": "/usr/bin/yarac",
+{{
+  "smda_path": "/home/fxb/mount/cruzialpostgres/datastore/smda_report_output/",
+  "malpedia_path": "/home/fxb/mount/cruzialpostgres/datastore/malpedia/",
+  "output_path": "/home/fxb/mount/cruzialpostgres/datastore/yara-output/",
+  "yaraBinary": "/home/fxb/git/yara-3.8.0/yara",
+  "yaracBinary": "/home/fxb/git/yara-3.8.0/yarac",
+  "malpediaEvalScript": "/home/fxb/codingspace/uni/bachelorthesis/yara-signator/src/main/python/malpedia_evaluation.py",
+  "malpediaEvalScriptOutput": "/tmp/95268496.json",
+  "reduceInputForDebugging": false,
+  "resumeFolder": "",
 
   "db_connection_string": "jdbc:postgresql://127.0.0.1/",
   "db_user": "postgres",
   "db_password": "",
-  "db_name": "caching_db",
+  "db_name": "release_0_3_1",
 
   "skipSMDAInsertions": false,
   "skipUniqueNgramTableCreation": false,
   "skipYaraRuleGeneration": false,
   "skipRuleValidation": false,
+  "skipNextGen": false,
 
   "insertion_threads": 16,
   "rulebuilder_threads": 8,
 
   "shuffle_seed": 12345678,
-  "minInstructions": 10,
+  "minInstructions": 100,
   "batchSize": 5000,
   "instructionLimitPerFamily": 15000000,
+  "ng_recursion_limit": 1,
 
+  "reportStatistics": true,
+  "reportFileName": "report.csv",
   "duplicatesInsideSamplesEnabled": false,
+  "permitOverlappingNgrams": true,
   "wildcardConfigEnabled": true,
   "rankingOptimizerEnabled": true,
   "scoreCommentEnabled": true,
@@ -99,21 +108,77 @@ To use yara-signator, the tool will search for a configuration file located in y
 
   "wildcardConfig": [
     {
-      "wildcardOperator": "onlyfirstbyte"
+      "wildcardOperator": "callsandjumps"
     },
-    {
-      "wildcardOperator": "dummy"
+    { 
+      "wildcardOperator": "datarefs"
+    },
+    { 
+      "wildcardOperator": "binvalue"
     }
   ],
 
   "rankingConfig": [
     {
       "ranker": "rankPerNgramScore",
-      "limit": 1000
+      "limit": 5000
+    }
+  ],
+
+  "nextGenConfig": [
+    { 
+      "rankingConfig": [
+        {
+          "ranker": "rankPerNgramScore",
+          "limit": 5000
+        }
+      ],
+      "nextGenOperator": "CandidateOne",
+      "rounds": 1,
+      "permitOverlappingNgrams": false,
+      "yara_condition": "7 of them",
+      "yara_condition_limit": 7,
+      "nextGenBreakout": {
+        "score": "f_score",
+        "score_limit": 0.9,
+        "FPs_allowed": true
+      }
     },
-    {
-      "ranker": "dummyRanking",
-      "limit": 10
+    { 
+      "rankingConfig": [
+        {
+          "ranker": "rankPerNgramScore",
+          "limit": 5000
+        }
+      ],
+      "nextGenOperator": "ParseMalpediaEval",
+      "rounds": 10,
+      "permitOverlappingNgrams": false,
+      "yara_condition": "1 of them",
+      "yara_condition_limit": 7,
+      "nextGenBreakout": {
+        "score": "f_score",
+        "score_limit": 0.9,
+        "FPs_allowed": true
+      }
+    },
+    { 
+      "rankingConfig": [
+        {
+          "ranker": "rankPerNgramScore",
+          "limit": 5000
+        }
+      ],
+      "nextGenOperator": "CandidateOne",
+      "rounds": 2,
+      "permitOverlappingNgrams": false,
+      "yara_condition": "7 of them",
+      "yara_condition_limit": 7,
+      "nextGenBreakout": {
+        "score": "f_score",
+        "score_limit": 0.9,
+        "FPs_allowed": true
+      }
     }
   ],
 
@@ -155,14 +220,11 @@ They are always executed in the same order as written in the config file. If you
 2. Create a valid config file (set folders to smda reports and to your pool, etc).
 3. Start postgresql daemon
 4. Start capstone_server on port 12345
-5. Launch yara-signator (`java -jar target/yara-signator-0.0.1-SNAPSHOT-jar-with-dependencies.jar >> logfile.txt`)
+5. Launch yara-signator (`java -jar target/yara-signator-0.3.1-SNAPSHOT-jar-with-dependencies.jar >> logfile.txt`)
 6. Monitor your log file: `tail -F logfile.txt`
 7. Check if capstone_server crashed, if yes, restart it
 
 ## FAQ
-Q: Why are there so many MongoDB classes if you do not even use a mongo database?<br />
-A: This is currently a first commit, I left as much code as I had in the project. If someone is reading the BS thesis and wants to retrace the concept, the source code will be available at least in this commit.
-
 Q: This capstone_server is a C program, why don't you use the capstone bindings for JAVA like everyone else?<br />
 A: I had some strange memory leaks (>10GB lost memory) when running many millions of opcodes against capstone over some hours. I couldn't fix them in JAVA and so I created a small program in C which communicates over TCP with other processes. If this process would have any memory leaks, you could simply restart it and the memory would be released back to the OS.
 

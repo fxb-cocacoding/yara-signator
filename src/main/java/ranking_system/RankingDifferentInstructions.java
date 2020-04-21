@@ -1,11 +1,11 @@
 package ranking_system;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import converters.ngrams.Ngram;
+import smtx_handler.Instruction;
 
 public class RankingDifferentInstructions extends Calculator {
 	/*
@@ -18,8 +18,9 @@ public class RankingDifferentInstructions extends Calculator {
 		
 		for(int i=0; i<ngram.getNgramInstructions().size(); i++) {
 			
-			if(instructions.contains(ngram.getNgramInstructions().get(i))) {
-				instructions.add(ngram.getNgramInstructions().get(i).getMnemonics().get(0));
+			Instruction instruction = ngram.getNgramInstructions().get(i);
+			if(instructions.contains(instruction)) {
+				instructions.add(instruction.getMnemonics().get(0));
 			}
 		}
 		

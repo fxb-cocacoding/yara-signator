@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.cocacoding</groupId>
   <artifactId>yara-signator</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
+  <version>0.3.1-SNAPSHOT</version>
   <name>yara-signator</name>
   
   <build>
@@ -47,7 +47,7 @@
     <dependency>
       <groupId>com.cocacoding</groupId>
       <artifactId>java2yara</artifactId>
-      <version>0.0.1-SNAPSHOT</version>
+      <version>0.3.0-SNAPSHOT</version>
     </dependency>
     
     
@@ -55,7 +55,7 @@
     <dependency>
       <groupId>com.cocacoding</groupId>
       <artifactId>smda-reader</artifactId>
-      <version>0.0.1-SNAPSHOT</version>
+      <version>0.3.0-SNAPSHOT</version>
     </dependency>
   
 	<!-- https://mvnrepository.com/artifact/org.postgresql/postgresql -->
@@ -73,6 +73,13 @@
       <version>2.8.4</version>
     </dependency>
     
+    <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-lang3 -->
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+      <version>3.9</version>
+    </dependency>
+    
     <!-- https://mvnrepository.com/artifact/commons-codec/commons-codec -->
     <dependency>
       <groupId>commons-codec</groupId>
@@ -86,7 +93,12 @@
       <artifactId>commons-io</artifactId>
       <version>2.6</version>
     </dependency>
-    
+    <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-collections4 -->
+	<dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-collections4</artifactId>
+      <version>4.4</version>
+	</dependency>
     
       <!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-simple -->
     <dependency>
@@ -115,6 +127,12 @@
       <version>1.2.3</version>
     </dependency>
     
+    <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-csv -->
+	<dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-csv</artifactId>
+      <version>1.8</version>
+	</dependency>
 
     <!-- https://mvnrepository.com/artifact/junit/junit -->
     <dependency>

@@ -1,9 +1,5 @@
 package ranking_system;
 
-import java.util.List;
-
-import converters.ngrams.Ngram;
-
 public class RankingFactory {
 
 	public Calculator getRankingCalculator(String function) {
@@ -13,6 +9,8 @@ public class RankingFactory {
 			return new RankingPerNgramScore();
 		} else if(function.equalsIgnoreCase("rankPrototype")) {
 			return new RankingPrototype();
+		} else if(function.equalsIgnoreCase("rankOverlappingNgrams")) {
+			return new RankingOverlappingNgrams();
 		} else if(function.equalsIgnoreCase("RankingDifferentInstructions")) {
 			return new RankingDifferentInstructions();
 		} else {

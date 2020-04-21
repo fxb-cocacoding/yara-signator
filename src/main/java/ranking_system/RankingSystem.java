@@ -6,12 +6,15 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 
-import javax.naming.OperationNotSupportedException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import converters.ngrams.Ngram;
-import mongodb.MongoHandler;
 
 public class RankingSystem {
+	
+	private static final Logger logger = LoggerFactory.getLogger(RankingSystem.class);
+	
 	private List<Ngram> ngramList;
 	public List<Ngram> getNgramList() {
 		return ngramList;
@@ -29,6 +32,13 @@ public class RankingSystem {
 	
 	public List<Ngram> rank(int candidatePoolSize, String function) {
 		Calculator calc = rankingSystem.getRankingCalculator(function);
+		
+		logger.info("ranking with " + function + " the candidate pool of size: " + candidatePoolSize);
+		
+		//TODO unset the value to config.seed or something
+		// We randomize to reduce the risk of getting overlapping ngrams although this is still not ideal
+		randomize(new Random(1337));
+		
 		for(Ngram ngram : ngramList) {
 			calc.calc(ngram, ngramList);
 		}
@@ -60,24 +70,5 @@ public class RankingSystem {
 	
 	public void randomize(Random rnd) {
 		Collections.shuffle(ngramList, rnd);
-	}
-	
-	@Deprecated
-	public List<Ngram> initMetaData(List<Ngram> ngramsRO) {
-		List<Ngram> ngrams = null;
-		try {
-			//old one:
-			//ngrams = new MongoHandler().getInstruction(ngramsRO);
-			//new one:
-			ngrams = new MongoHandler().getInstructionWithoutLookupTable(ngramsRO);
-			System.out.print("verbose: ");
-			System.out.println(ngrams.toString());
-		} catch (OperationNotSupportedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		System.out.println(ngrams.get(ngrams.size()-1));
-		return ngrams;
-	}
-	
+	}	
 }
