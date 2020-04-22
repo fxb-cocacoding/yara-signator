@@ -66,7 +66,7 @@ make all
 To use yara-signator, the tool will search for a configuration file located in your home folder called `.yarasignator.conf`. A sample file looks like this:
 
 ```
-{{
+{
   "smda_path": "/home/fxb/mount/cruzialpostgres/datastore/smda_report_output/",
   "malpedia_path": "/home/fxb/mount/cruzialpostgres/datastore/malpedia/",
   "output_path": "/home/fxb/mount/cruzialpostgres/datastore/yara-output/",
