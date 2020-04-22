@@ -1,5 +1,6 @@
 package statistics.yara_results;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.rmi.UnexpectedException;
 import java.sql.PreparedStatement;
@@ -390,25 +391,35 @@ public class NgramCreator {
 		
 		logger.info("method getNgramsForFamily_NextGen_CandidateOne entered!");
 		
-		MalpediaEval malpediaEval = new ReadMalpediaEval().getFileContent(config.malpediaEvalScriptOutput);
-		//logger.info(malpediaEval.toString());
+		MalpediaEval malpediaEval = null;
 		
-		/*
-		 * Generate/Increment a blacklist for each sample:
-		 */
-		for(WrongSignatures i: malpediaEval.fps.wrongSignatures) {
-			for(WrongSignature j: i.wrongsignature) {
-				for(WrongCoveredSample k: j.wrongSamples) {
-					for(Sequence l: k.sequences) {
-						String pattern = l.pattern.replaceAll(" ", "");
-						pattern = pattern.toLowerCase();
-						IterativeImprovementDataContainer.INSTANCE.blackListedSequenceCandidates.add(pattern);
+		try {
+			malpediaEval = new ReadMalpediaEval().getFileContent(config.malpediaEvalScriptOutput);
+			
+			/*
+			 * Generate/Increment a blacklist for each sample:
+			 */
+			for(WrongSignatures i: malpediaEval.fps.wrongSignatures) {
+				for(WrongSignature j: i.wrongsignature) {
+					for(WrongCoveredSample k: j.wrongSamples) {
+						for(Sequence l: k.sequences) {
+							String pattern = l.pattern.replaceAll(" ", "");
+							pattern = pattern.toLowerCase();
+							IterativeImprovementDataContainer.INSTANCE.blackListedSequenceCandidates.add(pattern);
+						}
 					}
 				}
 			}
+			
+			logger.info("Blacklist has been altered, containing now " + IterativeImprovementDataContainer.INSTANCE.blackListedSequenceCandidates.size() + " elements!");
+
+		} catch(FileNotFoundException e) {
+			logger.info("Blacklist was not altered since we do not have any evaluation yet");
+		} catch(IOException e) {
+			e.printStackTrace();
+			throw new UnsupportedOperationException("This error is fatal.");
 		}
 		
-		logger.info("Blacklist has been altered, containing now " + IterativeImprovementDataContainer.INSTANCE.blackListedSequenceCandidates.size() + " elements!");
 
 		
 		List<Ngram> ret = new ArrayList<>();
@@ -609,25 +620,35 @@ public class NgramCreator {
 			allSampleCounter.put(sample_id, 0);
 		}
 		
-		MalpediaEval malpediaEval = new ReadMalpediaEval().getFileContent(config.malpediaEvalScriptOutput);
-		//logger.info(malpediaEval.toString());
+		MalpediaEval malpediaEval = null;
 		
-		/*
-		 * Generate/Increment a blacklist for each sample:
-		 */
-		for(WrongSignatures i: malpediaEval.fps.wrongSignatures) {
-			for(WrongSignature j: i.wrongsignature) {
-				for(WrongCoveredSample k: j.wrongSamples) {
-					for(Sequence l: k.sequences) {
-						String pattern = l.pattern.replaceAll(" ", "");
-						pattern = pattern.toLowerCase();
-						IterativeImprovementDataContainer.INSTANCE.blackListedSequenceCandidates.add(pattern);
+		try {
+			malpediaEval = new ReadMalpediaEval().getFileContent(config.malpediaEvalScriptOutput);
+			
+			/*
+			 * Generate/Increment a blacklist for each sample:
+			 */
+			for(WrongSignatures i: malpediaEval.fps.wrongSignatures) {
+				for(WrongSignature j: i.wrongsignature) {
+					for(WrongCoveredSample k: j.wrongSamples) {
+						for(Sequence l: k.sequences) {
+							String pattern = l.pattern.replaceAll(" ", "");
+							pattern = pattern.toLowerCase();
+							IterativeImprovementDataContainer.INSTANCE.blackListedSequenceCandidates.add(pattern);
+						}
 					}
 				}
 			}
+			
+			logger.info("Blacklist has been altered, containing now " + IterativeImprovementDataContainer.INSTANCE.blackListedSequenceCandidates.size() + " elements!");
+
+		} catch(FileNotFoundException e) {
+			logger.info("Blacklist was not altered since we do not have any evaluation yet");
+		} catch(IOException e) {
+			e.printStackTrace();
+			throw new UnsupportedOperationException("This error is fatal.");
 		}
 		
-		logger.info("Blacklist has been altered, containing now " + IterativeImprovementDataContainer.INSTANCE.blackListedSequenceCandidates.size() + " elements!");
 		
 		StringBuilder queryTemplate = new StringBuilder();
 		queryTemplate.append("SELECT * FROM (");

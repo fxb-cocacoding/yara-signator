@@ -87,7 +87,6 @@ public class IterativeImprovementSystemFacade {
 						info.append("Step:          " + j + " / " + ngConfig.rounds + "\n");
 						
 						info.append("\n\n\n");
-	
 						
 						String csv = getCSV();
 						FileWriter fw;
