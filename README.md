@@ -15,6 +15,8 @@ The full chain will create database files up to 100GB very quickly, so you shoul
 
 **NEW:** See our new wiki and the installation guide:
 
+https://github.com/fxb-cocacoding/yara-signator/wiki/YARA-Signator---User-Manual-for-Version-0.3.1
+
 ## Workflow
 
 IMPORTANT: Make sure you have not a database in postgres using the same name as mentioned in the config file. The first thing yara-signator will do is a database drop if you have not activated the `skipSMDAInsertions` using a `true` flag.
