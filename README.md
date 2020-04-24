@@ -11,11 +11,13 @@ If you run postgres and yara-signator on one machine, I would recommend you to h
 
 The full chain will create database files up to 100GB very quickly, so you should have at least 100GB space left. The speed should be dramatically increased if your space is on faster storage.
 
+
 ## Getting started:
 
 **NEW:** See our new wiki and the installation guide:
 
-https://github.com/fxb-cocacoding/yara-signator/wiki/YARA-Signator---User-Manual-for-Version-0.3.1
+https://github.com/fxb-cocacoding/yara-signator/wiki/YARA-Signator-%23-User-Manual-for-Version-0.3.1
+
 
 ## Workflow
 
@@ -29,9 +31,11 @@ IMPORTANT: Make sure you have not a database in postgres using the same name as 
 6. Monitor your log file: `tail -F logfile.txt`
 7. Check if capstone_server crashed, if yes, restart it
 
+
 ## FAQ
 Q: This capstone_server is a C program, why don't you use the capstone bindings for JAVA like everyone else?<br />
 A: I had some strange memory leaks (>10GB lost memory) when running many millions of opcodes against capstone over some hours. I couldn't fix them in JAVA and so I created a small program in C which communicates over TCP with other processes. If this process would have any memory leaks, you could simply restart it and the memory would be released back to the OS.
+
 
 ## Report
 The approach is described in detail in my BS thesis:
@@ -40,4 +44,6 @@ SHA512: <br /> 0384d6ec497cbfca2ec4a7739337088c8c859e86ca63339fd3d26c8be2176e337
 SHA256: <br />
 4f0530d0da48b394cb0798c434ffc70c33ae351e54c77454c87546d17ec52b60 <br />
 
+
 This project was mainly developed during the writing of the previously mentioned BS thesis. According to this I would like to thank Daniel Plohmann for his great support and helpful ideas during his supervision and beyond, especially regarding to this software project.
+
