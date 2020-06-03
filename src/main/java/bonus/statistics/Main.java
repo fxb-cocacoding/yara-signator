@@ -27,10 +27,10 @@ public class Main {
 		
 		logger.info("...Statistics Evaluater...");
 		
-		String db_connection_string = "jdbc:postgresql://127.0.0.1/";
-		String db_user = "postgres";
-		String db_password = "";
-		String db_name = "botconf_paper_callsandjumps_datarefs_binvalue";
+		final String db_connection_string = "jdbc:postgresql://127.0.0.1/";
+		final String db_user = "postgres";
+		final String db_password = "";
+		final String db_name = "botconf_paper_callsandjumps_datarefs_binvalue";
 		
 		PostgresConnection.INSTANCE.setConnection(db_user, db_password, db_connection_string, db_name);
 		Connection connection = PostgresConnection.INSTANCE.psql_connection;

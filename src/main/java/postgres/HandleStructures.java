@@ -33,7 +33,7 @@ public class HandleStructures {
 			+ "architecture TEXT,"
 			+ "base_addr BIGINT,"
 			+ "bitness BIGINT,"
-			+ "buffersize BIGINT,"
+			+ "binary_size BIGINT,"
 			+ "status TEXT,"
 			+ "num_api_calls INT,"
 			+ "num_basic_blocks INT,"
@@ -45,8 +45,8 @@ public class HandleStructures {
             + "num_recursive_functions INT,"
             + "timestamp TEXT,"
             + "hash TEXT NOT NULL,"
-            + "filename TEXT NOT NULL UNIQUE,"
-            + "malpedia_filepath TEXT "
+            + "filename TEXT NOT NULL UNIQUE"
+           // + "malpedia_filepath TEXT "
             + ");";
 	
 	/*

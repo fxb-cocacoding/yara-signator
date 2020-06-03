@@ -32,10 +32,10 @@ public class PostgresRequestUtils {
 	
 	public boolean isFamilyAlreadyInDatabase(SMDA smda) throws SQLException {
 		PreparedStatement pst = PostgresConnection.INSTANCE.psql_connection.prepareStatement("SELECT family FROM families WHERE family LIKE ?;");
-		pst.setString(1, smda.getFamily());
+		pst.setString(1, smda.getMetadata().getFamily());
 		pst.execute();
 		ResultSet rs = pst.getResultSet();
-		System.out.println("testing if " + smda.getFamily() + " is already in DB: " + rs.getFetchSize());
+		System.out.println("testing if " + smda.getMetadata().getFamily() + " is already in DB: " + rs.getFetchSize());
 		
 		if(rs.getFetchSize() > 0 ) {
 			return true;
@@ -46,7 +46,7 @@ public class PostgresRequestUtils {
 
 	public boolean isSampleAlreadyInDatabase(SMDA smda) throws SQLException {
 		PreparedStatement pst = PostgresConnection.INSTANCE.psql_connection.prepareStatement("SELECT filename FROM samples WHERE filename LIKE ?;");
-		pst.setString(1, smda.getFilename());
+		pst.setString(1, smda.getMetadata().getFilename());
 		pst.execute();
 		ResultSet rs = pst.getResultSet();
 		if(rs.getFetchSize() == 1) return true;
@@ -200,7 +200,7 @@ public class PostgresRequestUtils {
 	}
 
 	public long familyGetFilesize(int family_id) throws SQLException {
-		PreparedStatement pst = PostgresConnection.INSTANCE.psql_connection.prepareStatement("SELECT buffersize FROM samples WHERE family_id = ?");
+		PreparedStatement pst = PostgresConnection.INSTANCE.psql_connection.prepareStatement("SELECT binary_size FROM samples WHERE family_id = ?");
 		pst.setInt(1, family_id);
 		pst.execute();
 		ResultSet rs = pst.getResultSet();
@@ -208,11 +208,47 @@ public class PostgresRequestUtils {
 		long largest_filesize = 0;
 		
 		while(rs.next()) {
-			long ret = rs.getInt("buffersize");
+			long ret = rs.getInt("binary_size");
 			
+			int cmp = Long.compareUnsigned(ret, largest_filesize);
+			
+			/* 
+			 * 
+			 * https://docs.oracle.com/javase/8/docs/api/java/lang/Long.html#compareUnsigned-long-long-
+			 * 
+			 * 
+			    compare
+			
+			    public static int compare(long x,
+			                              long y)
+			
+			    Compares two long values numerically. The value returned is identical to what would be returned by:
+			
+			        Long.valueOf(x).compareTo(Long.valueOf(y))
+			     
+			
+			    Parameters:
+			        x - the first long to compare
+			        y - the second long to compare
+			    Returns:
+			        the value 0 if x == y; a value less than 0 if x < y; and a value greater than 0 if x > y
+			    Since:
+			        1.7
+			*/
+
+
+			
+			if(cmp > 0) {
+				largest_filesize = ret;
+			}
+			
+			/*
+			 * This is simulated by using the compare method from long (since we are unsigned here)
+			 * 
 			if(ret > largest_filesize) {
 				largest_filesize = ret;
 			}
+			*/
 			
 		}
 

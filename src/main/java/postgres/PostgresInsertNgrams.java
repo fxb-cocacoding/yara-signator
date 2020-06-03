@@ -10,6 +10,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+
+import org.checkerframework.common.reflection.qual.GetMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,66 +52,43 @@ public class PostgresInsertNgrams implements Runnable {
 			boolean atLeastOneElementInNgramCollection, int i) throws IllegalStateException, SQLException {
 		
 		SMDA smda = null;
+		Meta metadata = null;
+		
 		try {
 			smda = new Generator().generateSMDA(allSmdaFiles[i].getAbsolutePath());
 			
-			String family;
+			String family, filename;
+
+			if(smda == null) {
+				logger.error("NO SMDA object retrieved. Faulty smda report!" + allSmdaFiles[i].getAbsolutePath());
+				logger.error("smda: " + allSmdaFiles[i].getAbsolutePath());
+				return;
+			}
 			
-			if(smda.getMeta() == null) {
-				logger.error("No MetaData found. Faulty smda report!");
+			if(smda.getMetadata() == null) {
+				logger.error("No MetaData found. Faulty smda report! " + allSmdaFiles[i].getAbsolutePath());
 				logger.error("smda: " + smda.toString());
 				return;
 			}
 			
-			if(smda.getMeta().getFamily() != null) {
-				family = smda.getMeta().getFamily();
-			} else if(smda.getFamily() != null) {
-				family = smda.getFamily();
+			logger.info(smda.getMetadata().toString());
+			
+			if(smda.getMetadata().getFamily() != null) {
+				family = smda.getMetadata().getFamily();
 			} else {
-				logger.error("No family name found. Faulty smda report!");
+				logger.error("No family name found. Faulty smda report! " + allSmdaFiles[i].getAbsolutePath());
 				logger.error("smda: " + smda.toString());
 				return;
 			}
 			
-			//hooking the field for legacy reasons since SMDA has new format.
-			smda.setFamily(family);
-			
-			logger.info(smda.getMeta().toString());
-			
-			// Fix Filenames:
-			if(smda.getFilename() == null || smda.getFilename().isEmpty()) {
-				
-				if(smda.getMeta().getMalpedia_filepath() != null && !smda.getMeta().getMalpedia_filepath().isEmpty()) {
-					
-					String f = smda.getMeta().getMalpedia_filepath();
-					f = f.substring(f.lastIndexOf("/")+1, f.length());
-					smda.setFilename(f);
-					logger.info("sample for family " + smda.getFamily() 
-							+ " has an empty filename, we fixed it using the malpedia_filepath entry " 
-							+ f);
-				
-				} else {
-					String f = allSmdaFiles[i].getAbsolutePath();
-					String filename = f.substring(f.lastIndexOf("/")+1, f.length());
-					
-					smda.setFilename(filename);
-					
-					logger.info("fix filename: " + filename + "  smda: " + smda.getSummary().toString());
-					logger.warn("sample for family " + smda.getFamily()
-							+ " has no valid name info in both fields. use the file system name: " 
-							+ f);
-				}
-				
+			if(smda.getMetadata().getFilename() != null) {
+				filename = smda.getMetadata().getFilename();
+			} else {
+				logger.error("No filename found. Faulty smda report! " + allSmdaFiles[i].getAbsolutePath());
+				logger.error("smda: " + smda.toString());
+				return;
 			}
 			
-			//Fix or handle malpedia_path
-			if(smda.getMeta().getMalpedia_filepath() == null || smda.getMeta().getMalpedia_filepath().isEmpty()) {
-				
-				Meta m = smda.getMeta();
-				m.setMalpedia_filepath("");
-				
-				logger.warn("the following smda file is not from malpedia or is faulty: " + smda.getSummary().toString());
-			}
 			
 		} catch(IllegalStateException | JsonSyntaxException | NullPointerException e) {
 			e.printStackTrace();
@@ -117,25 +96,43 @@ public class PostgresInsertNgrams implements Runnable {
 			logger.debug("smda: " + smda.toString());
 			return;
 		}
+		
 		/*
 		 * Step 0
 		 * Sanitize the input:
 		 */
-		if(smda == null || smda.getFilename() == null || smda.getFilename().isEmpty()) {
+		if(smda == null || 
+				smda.getMetadata().getFilename() == null || 
+				smda.getMetadata().getFilename().isEmpty()) {
 			System.out.println("null pointer in smda creation, no valid file");
-		} else if(smda.getSummary() == null) {
-			System.out.println("CONTINUE: NO SUMMARY DETECTED in " + smda.getFamily() + " - " + smda.getFilename() );
+			
+		} else if(smda.getMetadata() == null) {
+			System.out.println("CONTINUE: NO SUMMARY DETECTED in " 
+					+ smda.getMetadata().getFamily() + " - " 
+					+ smda.getMetadata().getFilename() );
 			return;
+			
 		} else if(smda.getXcfg() == null) {
-			System.out.println("CONTINUE: NO CFG DETECTED in " + smda.getFamily() + " - " + smda.getFilename() );
+			System.out.println("CONTINUE: NO CFG DETECTED in " 
+					+ smda.getMetadata().getFamily() + " - " 
+					+ smda.getMetadata().getFilename() );
 			return;
+			
 		} else if(smda.getXcfg().getFunctions() == null) {
-			System.out.println("CONTINUE: NO FUNCTIONS DETECTED in " + smda.getFamily() + " - " + smda.getFilename() );
+			System.out.println("CONTINUE: NO FUNCTIONS DETECTED in " 
+					+ smda.getMetadata().getFamily() + " - " 
+					+ smda.getMetadata().getFilename() );
 			return;
-		} else if(smda.getSummary().getNum_instructions() < minInstructions) {
-			System.out.println("CONTINUE: NOT ENOUGH INSTRUCTIONS FOUND in " + smda.getFamily() + " - " + smda.getFilename() + " - " + smda.getSummary().getNum_instructions() + "/" + minInstructions);
+			
+		} else if(smda.getStatistics().getNum_instructions() < minInstructions) {
+			System.out.println("CONTINUE: NOT ENOUGH INSTRUCTIONS FOUND in " 
+					+ smda.getMetadata().getFamily() + " - " 
+					+ smda.getMetadata().getFilename() + " - " 
+					+ smda.getStatistics().getNum_instructions() + "/" + minInstructions);
 			return;
 		}
+		
+		metadata = smda.getMetadata();
 		
 		/*
 		 * Linearize the disassembly.
@@ -169,6 +166,7 @@ public class PostgresInsertNgrams implements Runnable {
 			/*
 			 * ACTIVATE ONLY IF YOU WANT A PARTITIONED NGRAM_4 TABLE.
 			 */
+			
 			//createPartitionedNgramTable(family_id, n);
 			
 			ngrams = new ConverterFactory().calculateNgrams("createWithoutOverlappingCodeCaves", linearized, n);
@@ -185,21 +183,25 @@ public class PostgresInsertNgrams implements Runnable {
 				s.addAll(ngrams);
 				ngrams = new ArrayList<>(s);
 				int sizeAfter = ngrams.size();
-				logger.info(smda.getFamily() + " - " + smda.getFilename() + " - size_before: " + sizeBefore + " - size_after: " + sizeAfter);
+				logger.info(metadata.getFamily() + " - " + metadata.getFilename() + " - size_before: " + sizeBefore + " - size_after: " + sizeAfter);
 			}
 
 			if(ngrams.isEmpty()) {
-				System.out.println("no ngrams detected, got null in " + smda.getFilename());
+				System.out.println("no ngrams detected, got null in " + metadata.getFilename());
 				continue;
 			}
-			logger.info("Writing ngrams_" + n + " (size: " + ngrams.size() + ") for " + smda.getFamily() + " - " + smda.getFilename() + " into db.");
+			logger.info("Writing ngrams_" + n + " (size: " + ngrams.size() + ") for " 
+					+ metadata.getFamily() + " - " + metadata.getFilename() + " into db.");
+			
 			counter.put(n, ngrams.size());
 			writeNgramsToDatabase(smda, ngrams, n, config.batchSize, sample_id, family_id);
 		}
 		
-		logger.info("[INSERTION_STEP] Progress: " + (int)(( (float) (i + 1) / allSmdaFiles.length)*100.0) + "% - " + "Step: " + (i + 1) + "/" + allSmdaFiles.length +
-				" - Sample: " + smda.getFamily() +
-				" " + smda.getFilename() + " " + smda.getArchitecture() + " " + smda.getBitness());
+		logger.info("[INSERTION_STEP] Progress: " 
+				+ (int)(( (float) (i + 1) / allSmdaFiles.length)*100.0) + "% - " 
+				+ "Step: " + (i + 1) + "/" + allSmdaFiles.length +
+				" - Sample: " + metadata.getFamily() +
+				" " + metadata.getFilename() + " " + smda.getArchitecture() + " " + smda.getBitness());
 		logger.info("Ngram stats: " + counter.toString());
 	}
 
@@ -242,10 +244,10 @@ public class PostgresInsertNgrams implements Runnable {
 				+ "family_id , architecture , base_addr , status"
 				+ ", num_api_calls , num_basic_blocks , num_disassembly_errors , num_function_calls , num_functions"
 				+ ", num_instructions , num_leaf_functions , num_recursive_functions ,"
-				+ "timestamp , hash , filename, bitness, buffersize, malpedia_filepath) VALUES (?,?,?,?"
+				+ "timestamp , hash , filename, bitness, binary_size) VALUES (?,?,?,?"
 				+ ",?,?,?,?,?"
 				+ ",?,?,?"
-				+ ",?,?,?,?,?,?) ON CONFLICT DO NOTHING RETURNING id;", Statement.RETURN_GENERATED_KEYS);
+				+ ",?,?,?,?,?) ON CONFLICT DO NOTHING RETURNING id;", Statement.RETURN_GENERATED_KEYS);
 				
 		//pst.setString(1, smda.getFamily());
 		pst.setInt(1, family_id);
@@ -253,28 +255,28 @@ public class PostgresInsertNgrams implements Runnable {
 		pst.setLong(3, smda.getBase_addr());
 		pst.setString(4, smda.getStatus());
 		
-		pst.setLong(5, smda.getSummary().getNum_api_calls());
-		pst.setLong(6, smda.getSummary().getNum_basic_blocks());
+		pst.setLong(5, smda.getStatistics().getNum_api_calls());
+		pst.setLong(6, smda.getStatistics().getNum_basic_blocks());
 		
 		/*
 		 * We are currently only interested in the disassembly failed functions,
 		 * although interested is not really the right word, we just save them.
 		 */
 		
-		pst.setLong(7, smda.getSummary().getNum_disassembly_failed_functions());
+		pst.setLong(7, smda.getStatistics().getNum_failed_functions());
 		
-		pst.setLong(8, smda.getSummary().getNum_function_calls());
-		pst.setLong(9, smda.getSummary().getNum_functions());
-		pst.setLong(10, smda.getSummary().getNum_instructions());
-		pst.setLong(11, smda.getSummary().getNum_leaf_functions());
-		pst.setLong(12, smda.getSummary().getNum_recursive_functions());
+		pst.setLong(8, smda.getStatistics().getNum_function_calls());
+		pst.setLong(9, smda.getStatistics().getNum_functions());
+		pst.setLong(10, smda.getStatistics().getNum_instructions());
+		pst.setLong(11, smda.getStatistics().getNum_leaf_functions());
+		pst.setLong(12, smda.getStatistics().getNum_recursive_functions());
 		
 		pst.setString(13, smda.getTimestamp());
 		pst.setString(14, smda.getSha256());
-		pst.setString(15, smda.getFilename());
+		pst.setString(15, smda.getMetadata().getFilename());
 		pst.setLong(16, smda.getBitness());
-		pst.setLong(17, smda.getBuffer_size());
-		pst.setString(18, smda.getMeta().getMalpedia_filepath());
+		pst.setLong(17, smda.getBinary_size());
+		//pst.setString(18, smda.getMetaData().getMalpedia_filepath());
 		
 		int rowsModified = pst.executeUpdate();
 		
@@ -283,7 +285,9 @@ public class PostgresInsertNgrams implements Runnable {
 		if(rs.next()) {
 			returnID = (int) rs.getObject(1);
 		} else {
-			throw new SQLException("no return ID could be found for " + smda.getFamily() + " - " + smda.getFilename());
+			throw new SQLException("no return ID could be found for " 
+					+ smda.getMetadata().getFamily() + " - " 
+					+ smda.getMetadata().getFilename());
 		}
 		//PostgresConnection.INSTANCE.psql_connection.commit();
 		
@@ -292,7 +296,7 @@ public class PostgresInsertNgrams implements Runnable {
 
 	private int writeFamilyToDatabase(SMDA smda) throws SQLException {
 		PreparedStatement pst = PostgresConnection.INSTANCE.psql_connection.prepareStatement("INSERT INTO families (family) VALUES (?) ON CONFLICT DO NOTHING RETURNING id;", Statement.RETURN_GENERATED_KEYS);
-		pst.setString(1, smda.getFamily());
+		pst.setString(1, smda.getMetadata().getFamily());
 		
 		int rowsModified = pst.executeUpdate();
 		
@@ -302,18 +306,22 @@ public class PostgresInsertNgrams implements Runnable {
 			returnID = (int) rs.getObject(1);
 		} else {
 			pst = PostgresConnection.INSTANCE.psql_connection.prepareStatement("SELECT * FROM families WHERE family = ?");
-			pst.setString(1, smda.getFamily());
+			pst.setString(1, smda.getMetadata().getFamily());
 			pst.execute();
 			rs = pst.getResultSet();
 			if(rs.next()) {
 				returnID = rs.getInt("id");
-				System.out.println("id for family " + smda.getFamily() + " is " + returnID);
+				System.out.println("id for family " + smda.getMetadata().getFamily() + " is " + returnID);
 			} else {
-				throw new SQLException("no return ID could be found for " + smda.getFamily() + " - " + smda.getFilename());
+				throw new SQLException("no return ID could be found for " 
+						+ smda.getMetadata().getFamily() + " - " 
+						+ smda.getMetadata().getFilename());
 			}
 		}
 		if(returnID == 0) {
-			throw new SQLException("no return ID could be found for " + smda.getFamily() + " - " + smda.getFilename());
+			throw new SQLException("no return ID could be found for " 
+					+ smda.getMetadata().getFamily() + " - " 
+					+ smda.getMetadata().getFilename());
 		}
 		
 		return returnID;

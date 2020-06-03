@@ -16,7 +16,7 @@ The full chain will create database files up to 100GB very quickly, so you shoul
 
 **NEW:** See our new wiki and the installation guide:
 
-https://github.com/fxb-cocacoding/yara-signator/wiki/YARA-Signator-%23-User-Manual-for-Version-0.3.1
+https://github.com/fxb-cocacoding/yara-signator/wiki/YARA-Signator-%23-User-Manual-for-Version-0.4.0
 
 
 ## Workflow
@@ -27,7 +27,7 @@ IMPORTANT: Make sure you have not a database in postgres using the same name as 
 2. Create a valid config file (set folders to smda reports and to your pool, etc).
 3. Start postgresql daemon
 4. Start capstone_server on port 12345
-5. Launch yara-signator (`java -jar target/yara-signator-0.3.1-SNAPSHOT-jar-with-dependencies.jar >> logfile.txt`)
+5. Launch yara-signator (`java -jar target/yara-signator-0.4.0-SNAPSHOT-jar-with-dependencies.jar >> logfile.txt`)
 6. Monitor your log file: `tail -F logfile.txt`
 7. Check if capstone_server crashed, if yes, restart it
 

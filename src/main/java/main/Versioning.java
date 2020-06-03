@@ -10,8 +10,10 @@ public enum Versioning {
 	 */
 	
 	
-	public String VERSION = "0.3.1";
-	public String MALPEDIA_COMMIT = "7417966c1d6f23c4f25b351209781b60086b6f9e";
+	public String VERSION = "0.4.0";
+	public String MALPEDIA_COMMIT = "0000000000000000000000000000000000000000";
+	
+	public String MALPEDIA_DATE = "00000000";
 	
 	public String MALPEDIA_COMMIT_EIGHT = MALPEDIA_COMMIT.substring(0, 8);
 }

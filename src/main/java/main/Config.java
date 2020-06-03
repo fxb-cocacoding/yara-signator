@@ -20,6 +20,9 @@ public class Config {
 	public String yaraBinary = "/usr/bin/yara";
 	public String yaracBinary = "/usr/bin/yarac";
 	public String malpediaEvalScript = "";
+	
+	public String malpediaVersioningFile = "";
+	
 	public String malpediaEvalScriptOutput = "/tmp/95268496.json";
 	public String resumeFolder = "";
 	
@@ -27,6 +30,8 @@ public class Config {
 	public String db_user = "postgres";
 	public String db_password = "";
 	public String db_name = "caching_db";
+	
+	public String yara_signator_version = "0.4.0";
 	
 	public boolean skipSMDAInsertions = false;
 	public boolean skipYaraRuleGeneration = false;

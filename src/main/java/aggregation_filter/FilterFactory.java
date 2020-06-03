@@ -17,7 +17,7 @@ public class FilterFactory {
 			//System.out.println("apply dummy filter");
 			new FilterDummy().apply(ngrams);
 		} else {
-			throw new java.lang.UnsupportedOperationException();
+			throw new UnsupportedOperationException();
 		}
 	}
 	

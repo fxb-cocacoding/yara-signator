@@ -19,17 +19,18 @@ import com.google.gson.GsonBuilder;
 import iterative_improvement.IterativeImprovementSystemFacade;
 import postgres.PostgresRequestUtils;
 import utils.FileFinder;
+import utils.MalpediaVersion;
 
 /** Main class, entry point for yara-signator.
  * 
  * @author Felix Bilstein
  * @author yara-signator (at) cocacoding (dot) com
- * @version 0.3.1
+ * @version 0.4.0
  * @since 0.1
 */
 public class Main {
 	
-	private static final Logger logger = LoggerFactory.getLogger(Main.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
 
 	/**
 	 * This is the main method of yara-signator
@@ -66,46 +67,68 @@ public class Main {
 	    try {
 			config = new Utils().getConfig(configFileName);
 		} catch (Exception e) {
-			logger.error(e.getLocalizedMessage());
+			LOGGER.error(e.getLocalizedMessage());
 			if(config == null) {
-				logger.error("fatal, config file could not be processed!");
+				LOGGER.error("fatal, config file could not be processed!");
 			}
 			return;
 		}
 		
+	    if(config.yara_signator_version != null && config.yara_signator_version != "") {
+	    	Versioning.INSTANCE.VERSION = config.yara_signator_version;
+	    	LOGGER.info("VERSION:   " + Versioning.INSTANCE.VERSION);
+	    } else {
+	    	LOGGER.warn("YARA-Signator version not found, using 0.0.0...");
+	    	Versioning.INSTANCE.VERSION = "0.0.0";
+	    }
+	    
+	    if(config.malpediaVersioningFile != null && config.malpediaVersioningFile != "") {
+	    	MalpediaVersion mv;
+	    	try {
+	    		mv = new Utils().getVersioning(config.malpediaVersioningFile);
+	    	} catch (IOException e) {
+	    		e.printStackTrace();
+	    		LOGGER.error("versioning file is broken.");
+	    		return;
+	    	}
+	    	LOGGER.info("mv.commit: " + mv.commit);
+	    	LOGGER.info("mv.date:   " + mv.date);
+	    	Versioning.INSTANCE.MALPEDIA_COMMIT = mv.commit;
+	    	Versioning.INSTANCE.MALPEDIA_DATE = mv.date;
+	    }
 	    
 	    
 	    /*
 	     * Processing variables from configuration file for building path etc
 	     */
-	    if( (config.resumeFolder != null) && (!config.resumeFolder.isEmpty()) && (!config.resumeFolder.equalsIgnoreCase("")) ) {
+	    if( config.resumeFolder != null && !config.resumeFolder.isEmpty() && !config.resumeFolder.equalsIgnoreCase("") ) {
 	    	/*
 	    	 * if resumeFolder is set, override the dateFolder which defaults to the current time and date -> to prevent overriding
 	    	 */
 	    	dateFolder = config.resumeFolder;
-	    	logger.warn("RESUME FOLDER ACTIVATED: This will override all your results in this folder!"
+	    	LOGGER.warn("RESUME FOLDER ACTIVATED: This will override all your results in this folder!"
 	    			+ "\n" + config.output_path + "/" + dateFolder + "\n PRESS CTRL+C if you wish to abort!");
 	    	try {
 				Thread.sleep(20000);
 			} catch (InterruptedException e) {
-				logger.error("Main thread was interrupted while waiting for user.");
-				logger.error("dateFolder was not updated, it points to: " + dateFolder
+				LOGGER.error("Main thread was interrupted while waiting for user.");
+				LOGGER.error("dateFolder was not updated, it points to: " + dateFolder
 						+ " - but should point to this value from the config: " + config.resumeFolder);
-				logger.error(e.getLocalizedMessage());
+				LOGGER.error(e.getLocalizedMessage());
 				return;
 			}
 	    }
 	    
 	    
-		final String yarac_path = config.output_path + "/" + dateFolder + "/*/*/*/* " + config.output_path + "/" + dateFolder + "/" + "yara-compilement";
-		final String yara_compilement = config.output_path + "/" + dateFolder + "/" + "yara-compilement";
-		final String cmd_yara = config.yaraBinary + " -r " +  yara_compilement + " " + config.malpedia_path;
-		final String cmd_yarac = config.yaracBinary + " " + yarac_path;
+		final String yaracPath = config.output_path + "/" + dateFolder + "/*/*/*/* " + config.output_path + "/" + dateFolder + "/" + "yara-compilement";
+		final String yaraCompilement = config.output_path + "/" + dateFolder + "/" + "yara-compilement";
+		final String cmdYara = config.yaraBinary + " -r " +  yaraCompilement + " " + config.malpedia_path;
+		final String cmdYarac = config.yaracBinary + " " + yaracPath; // NOPMD by fxb on 08.05.20 10:51
 		final String copyConfigTarget = config.output_path + "/" + dateFolder + "/" + "configFile";
 		
 		if(!config.reportFileName.startsWith("/")) {
 			String newFileName = config.output_path + "/" + dateFolder + "/" + config.reportFileName;
-			logger.info("Changed the reportFileName from >>" + config.reportFileName + "<< to >>" + newFileName + "<<");
+			LOGGER.info("Changed the reportFileName from >>" + config.reportFileName + "<< to >>" + newFileName + "<<");
 			config.reportFileName = newFileName;
 		}
 		
@@ -118,7 +141,7 @@ public class Main {
 				tmpSmdaFiles.add(new File(s));
 			}
 			allSmdaFiles = tmpSmdaFiles.toArray(new File[tmpSmdaFiles.size()]);
-			logger.info(allSmdaFiles.toString());
+			LOGGER.info(allSmdaFiles.toString());
 		} catch (IOException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
@@ -130,7 +153,7 @@ public class Main {
 			/*
 			 * If debugging is enabled, we shrink the input files to 150 for debugging:
 			 */
-			logger.warn("REDUCED THE INPUT FILES TO 350, DEBUGGING WAS ACTIVATED! (config.reduceInputForDebugging: "
+			LOGGER.warn("REDUCED THE INPUT FILES TO 350, DEBUGGING WAS ACTIVATED! (config.reduceInputForDebugging: "
 					+ config.reduceInputForDebugging + " )");
 			Arrays.sort(allSmdaFiles, NameFileComparator.NAME_INSENSITIVE_COMPARATOR);
 			ArrayList<File> files = new ArrayList<File>();
@@ -140,24 +163,24 @@ public class Main {
 			allSmdaFiles = new File[files.size()];
 			allSmdaFiles = files.toArray(allSmdaFiles);
 		}
-		logger.info("Found " + allSmdaFiles.length + " files which will be processed!");
+		LOGGER.info("Found " + allSmdaFiles.length + " files which will be processed!");
 		
 		
 		/*
 		 * Setting up the database singleton
 		 */
-		logger.info("Setting up the database connection...");
+		LOGGER.info("Setting up the database connection...");
 		try {
 			new PostgresRequestUtils().setup_db_handler(config);
 		} catch (SQLException e) {
-			logger.error(e.getLocalizedMessage());
+			LOGGER.error(e.getLocalizedMessage());
 			return;
 		} catch (Exception e) {
-			logger.error(e.getLocalizedMessage());
+			LOGGER.error(e.getLocalizedMessage());
 			return;
 		}
 		
-		logger.info("Creating a copy of the config file in the target location: " + copyConfigTarget);
+		LOGGER.info("Creating a copy of the config file in the target location: " + copyConfigTarget);
 		Gson gson = new GsonBuilder().setPrettyPrinting().create();
 		try {
 			File file = new File(copyConfigTarget);
@@ -168,52 +191,52 @@ public class Main {
 			fw.close();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
-			logger.error(e.getLocalizedMessage());
-			logger.error("We were unable to write the following config file to the file: \n" + gson.toJson(config) + "\n");
+			LOGGER.error(e.getLocalizedMessage());
+			LOGGER.error("We were unable to write the following config file to the file: \n" + gson.toJson(config) + "\n");
 			return;
 		}
 		
 		
-		logger.info("Starting the step: " + "SMDAInsertions");
+		LOGGER.info("Starting the step: " + "SMDAInsertions");
 		if(!config.skipSMDAInsertions) {
 			try {
 				new PostgresRequestUtils().firstInsertions(config, allSmdaFiles, config.minInstructions, true);
 			} catch (Exception e) {
-				logger.error(e.getLocalizedMessage());
+				LOGGER.error(e.getLocalizedMessage());
 			}
 		}
 		
-		logger.info("Starting the step: " + "UniqueNgramTableCreation");
+		LOGGER.info("Starting the step: " + "UniqueNgramTableCreation");
 		if(!config.skipUniqueNgramTableCreation) {
 			try {
 				new PostgresRequestUtils().generateUniquePartitionedTables(config);
 			} catch (Exception e) {
-				logger.error(e.getLocalizedMessage());
+				LOGGER.error(e.getLocalizedMessage());
 			}
 		}
 		
-		logger.info("Starting the step: " + "YaraRuleGeneration");
+		LOGGER.info("Starting the step: " + "YaraRuleGeneration");
 		if(!config.skipYaraRuleGeneration) {
 			try {
 				new PostgresRequestUtils().generateYaraRule(dtf, now, config);
 			} catch (Exception e) {
-				logger.error(e.getLocalizedMessage());
+				LOGGER.error(e.getLocalizedMessage());
 			}
 		}
 		
 		
 		
-		IterativeImprovementSystemFacade ngFacade = new IterativeImprovementSystemFacade(dtf, now, config, dateFolder, cmd_yarac, cmd_yara);
+		IterativeImprovementSystemFacade ngFacade = new IterativeImprovementSystemFacade(dtf, now, config, dateFolder, cmdYarac, cmdYara);
 		
-		logger.info("Starting the step: " + "RuleValidation");
+		LOGGER.info("Starting the step: " + "RuleValidation");
 		String stats = "";
 		if(!config.skipRuleValidation) {
 			stats = ngFacade.verify();
-			logger.info("Stats: " + stats);
+			LOGGER.info("Stats: " + stats);
 			stats = stats + "\n\n";
 		}
 		
-		logger.info("Starting the step: " + "reportStatistics");
+		LOGGER.info("Starting the step: " + "reportStatistics");
 		if(config.reportStatistics == true) {
 			
 			StringBuilder info = new StringBuilder();
@@ -241,8 +264,8 @@ public class Main {
 				fw.close();
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
-				logger.error(e.getLocalizedMessage());
-				logger.error("We were unable to write the following CSV to the file: \n\n" + info.toString() + csv + stats + "\n\n");
+				LOGGER.error(e.getLocalizedMessage());
+				LOGGER.error("We were unable to write the following CSV to the file: \n\n" + info.toString() + csv + stats + "\n\n");
 			}
 		}
 		
@@ -261,11 +284,11 @@ public class Main {
 		
 		
 		
-		logger.info("Starting the step: " + "NextGen");
+		LOGGER.info("Starting the step: " + "NextGen");
 		if(!config.skipNextGen) {
-			logger.info("Running now the experimental NextGeneration approach to fix the remaining rule candidates!");
-			logger.info("Finding the families which have to be fixed...");
-			logger.info("Starting NextGenSystem... Maximum Iteration Level: " + config.ng_recursion_limit);
+			LOGGER.info("Running now the experimental NextGeneration approach to fix the remaining rule candidates!");
+			LOGGER.info("Finding the families which have to be fixed...");
+			LOGGER.info("Starting NextGenSystem... Maximum Iteration Level: " + config.ng_recursion_limit);
 			
 			ngFacade.ngAction();
 			
@@ -273,9 +296,9 @@ public class Main {
 		}
 		
 		
-		logger.info("Shutting down.");
+		LOGGER.info("Shutting down.");
 		long endTime = System.nanoTime();
-		logger.info("Took " + (endTime - startTime)/(1000*1000*1000) + " seconds");
+		LOGGER.info("Took " + (endTime - startTime)/(1000*1000*1000) + " seconds");
 	}    
 	
 		

@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.cocacoding</groupId>
   <artifactId>yara-signator</artifactId>
-  <version>0.3.1-SNAPSHOT</version>
+  <version>0.4.0-SNAPSHOT</version>
   <name>yara-signator</name>
   
   <build>
@@ -47,7 +47,7 @@
     <dependency>
       <groupId>com.cocacoding</groupId>
       <artifactId>java2yara</artifactId>
-      <version>0.3.0-SNAPSHOT</version>
+      <version>0.4.0-SNAPSHOT</version>
     </dependency>
     
     
@@ -55,7 +55,7 @@
     <dependency>
       <groupId>com.cocacoding</groupId>
       <artifactId>smda-reader</artifactId>
-      <version>0.3.0-SNAPSHOT</version>
+      <version>0.4.0-SNAPSHOT</version>
     </dependency>
   
 	<!-- https://mvnrepository.com/artifact/org.postgresql/postgresql -->
@@ -142,17 +142,11 @@
       <scope>test</scope>
     </dependency>
     
-    <dependency>
-      <groupId>org.mongodb</groupId>
-      <artifactId>mongodb-driver</artifactId>
-      <version>3.8.1</version>
-    </dependency>
-    
-    <!-- Capstone bindings
+    <!-- Capstone bindings, currently broken!
     <dependency>
       <groupId>capstone</groupId>
       <artifactId>capstone</artifactId>
-      <version>4.0.1</version>
+      <version>4.0.2</version>
     </dependency>
 
     <dependency>

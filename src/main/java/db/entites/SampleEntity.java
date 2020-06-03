@@ -3,7 +3,7 @@ package db.entites;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
-import smtx_handler.HeaderSummary;
+import smtx_handler.Statistics;
 
 public class SampleEntity {
 	public String family;
@@ -12,7 +12,7 @@ public class SampleEntity {
 	public String base_addr;
 	public String status;
 	
-	public HeaderSummary summary;
+	public Statistics summary;
 	
 	public String timestamp;
 	
