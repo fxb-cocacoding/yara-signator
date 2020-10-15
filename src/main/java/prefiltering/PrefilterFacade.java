@@ -7,12 +7,12 @@ import main.WildcardConfig;
 
 public class PrefilterFacade {
 	
-	public List<Ngram> prefilterAction(List<Ngram> ngrams, Config config) {
+	public List<Ngram> prefilterAction(List<Ngram> ngrams, List<WildcardConfig> config) {
 		
 		PrefilterSystem prefilter = new PrefilterSystem(ngrams);
 		int prefilterCounter = 0;
 		
-		for(WildcardConfig c: config.getWildcardConfigConfig()) {
+		for(WildcardConfig c: config) {
 			ngrams = prefilter.process(c.wildcardOperator);
 			
 			if(prefilterCounter == 0) {

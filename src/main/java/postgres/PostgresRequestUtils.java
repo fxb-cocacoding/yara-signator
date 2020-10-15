@@ -35,7 +35,7 @@ public class PostgresRequestUtils {
 		pst.setString(1, smda.getMetadata().getFamily());
 		pst.execute();
 		ResultSet rs = pst.getResultSet();
-		System.out.println("testing if " + smda.getMetadata().getFamily() + " is already in DB: " + rs.getFetchSize());
+		logger.debug("testing if " + smda.getMetadata().getFamily() + " is already in DB: " + rs.getFetchSize());
 		
 		if(rs.getFetchSize() > 0 ) {
 			return true;
@@ -84,37 +84,15 @@ public class PostgresRequestUtils {
 		
 		PreparedStatement pst = PostgresConnection.INSTANCE.psql_connection.prepareStatement(statement);
 		
-		logger.info(statement);
+		logger.debug(statement);
 		pst.execute();
 		
 		statement = "CREATE INDEX agg" + n + "_btree_index ON aggregated_" + n + " USING btree (family);";
-		logger.info(statement);
+		logger.debug(statement);
 		pst = PostgresConnection.INSTANCE.psql_connection.prepareStatement(statement);
 	}
 	
 	public void insertIntoAgregationTablesPartitioned(int n) throws SQLException {		
-		/*
-		 * unoptimized:
-		 * 
-		PreparedStatement pst = PostgresConnection.INSTANCE.psql_connection.prepareStatement(""
-				+ "CREATE TABLE IF NOT EXISTS aggregated_" + n + " AS (select concat, UNNEST(ARRAY_AGG(DISTINCT family)) AS family, "
-				+ "ARRAY_AGG(DISTINCT samples.id) AS sample_id, "
-				+ "cardinality(string_to_array(string_agg(DISTINCT filename, ','), ',')) AS occurence "
-				+ "FROM ngrams_" + n + " JOIN samples ON samples.id=sample_id "
-				+ "GROUP BY concat HAVING COUNT(DISTINCT family) = 1); "
-				+ "");
-		*/
-		
-		/*
-		String statement = ""
-				+ "INSERT INTO aggregated_" + n + "_part (SELECT concat, UNNEST(ARRAY_AGG(DISTINCT score)) AS score, UNNEST(ARRAY_AGG(DISTINCT family_id)) AS family_id, "
-				+ "ARRAY_AGG(DISTINCT samples.id) AS sample_id, "
-				+ "cardinality(ARRAY_AGG(DISTINCT samples.id)) AS occurence "
-			//	+ "bitness " bitness would be nice, but we do not have it. We lost it when doing the group by and mixing x86 and x64
-				+ "FROM ngrams_" + n + " JOIN samples ON samples.id=sample_id "
-				+ "GROUP BY concat HAVING COUNT(DISTINCT family_id) = 1) ;"
-				+ "";
-		 */
 		
 		String statement = ""
 				+ "INSERT INTO aggregated_" + n + "_part ("
@@ -135,17 +113,16 @@ public class PostgresRequestUtils {
 		
 		
 		PreparedStatement pst = PostgresConnection.INSTANCE.psql_connection.prepareStatement(statement);
-		logger.info(statement);
+		logger.debug(statement);
 		pst.execute();
 		PostgresConnection.INSTANCE.psql_connection.commit();
 		
 		String alterStmt = "ALTER TABLE" + " aggregated_" + n + "_part " + "SET LOGGED;";
 		Statement st = PostgresConnection.INSTANCE.psql_connection.createStatement();
-		logger.info(alterStmt);
+		logger.debug(alterStmt);
 		st.execute(alterStmt);
 		PostgresConnection.INSTANCE.psql_connection.commit();
 	}
-
 
 	public List<String> getFamilies() throws SQLException {
 		ArrayList<String> ret = new ArrayList<String>();
@@ -249,17 +226,11 @@ public class PostgresRequestUtils {
 				largest_filesize = ret;
 			}
 			*/
-			
 		}
 
 		return largest_filesize;
 	}
-	
-	/*
-	 * Filter step
-	 * TODO: Refactor this into a real filter case, not inside the Database helper class
-	 */
-	
+
 	public void createPartitionedTables(Map<String, Integer> families, List<Integer> allN) throws SQLException {
 		Statement st;
 		boolean ret;
@@ -269,22 +240,22 @@ public class PostgresRequestUtils {
 					+ "_part (concat text, score SMALLINT, family_id integer, sample_id integer[], occurence SMALLINT) PARTITION BY LIST(family_id);";
 			
 			st = PostgresConnection.INSTANCE.psql_connection.createStatement();
-			logger.info(statement);
+			logger.debug(statement);
 			ret = st.execute(statement);
 			st.close();
 			PostgresConnection.INSTANCE.psql_connection.commit();
 			for(int s: families.values()) {
 				
-				statement = "CREATE TABLE IF NOT EXISTS aggregated_" + n + "_part_" + s + " PARTITION OF aggregated_" + n + "_part FOR VALUES IN (" + s + ");";
+				statement = "CREATE UNLOGGED TABLE IF NOT EXISTS aggregated_" + n + "_part_" + s + " PARTITION OF aggregated_" + n + "_part FOR VALUES IN (" + s + ");";
 				st = PostgresConnection.INSTANCE.psql_connection.createStatement();
-				logger.info(statement);
+				logger.debug(statement);
 				ret = st.execute(statement);
 				st.close();
 				
 				statement = "ALTER TABLE aggregated_" + n + "_part_" + s + 
 						" ADD CONSTRAINT aggregated_" + n + "_part_" + s + " CHECK( family_id = " + s + ");";
 				st = PostgresConnection.INSTANCE.psql_connection.createStatement();
-				logger.info(statement);
+				logger.debug(statement);
 				ret = st.execute(statement);
 				
 				st.close();
@@ -304,14 +275,14 @@ public class PostgresRequestUtils {
 			for(int s: families.values()) {
 				statement = "DROP TABLE IF EXISTS aggregated_" + n + "_part_" + s + ";";
 				st = PostgresConnection.INSTANCE.psql_connection.createStatement();
-				logger.info(statement);
+				logger.debug(statement);
 				st.execute(statement);
 				st.close();
 				PostgresConnection.INSTANCE.psql_connection.commit();
 			}
 			statement = "DROP TABLE IF EXISTS aggregated_" + n + "_part;";
 			st = PostgresConnection.INSTANCE.psql_connection.createStatement();
-			logger.info(statement);
+			logger.debug(statement);
 			st.execute(statement);
 			st.close();
 			PostgresConnection.INSTANCE.psql_connection.commit();
@@ -323,7 +294,7 @@ public class PostgresRequestUtils {
     public void firstInsertions(Config config, File[] allSmdaFiles, long minInstructions, boolean firstInsertion) {
 		logger.info("Starting with all initial insertions, dropping all tables. PRESS CTRL-C if you wish to abort!");
 		for(int i=0;i<20;i++) {
-			System.out.print(".");
+			logger.info(".");
 			try {
 				Thread.sleep(1000);
 			} catch (InterruptedException e) {
@@ -358,7 +329,7 @@ public class PostgresRequestUtils {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		}
-		logger.info(families.toString());
+		logger.trace(families.toString());
 		int counter = 0;
 		
 		ExecutorService executorService = Executors.newFixedThreadPool(config.rulebuilder_threads);
@@ -408,8 +379,8 @@ public class PostgresRequestUtils {
 		}
 		
 		logger.info("Writing YARA rules for these families now...");
-		logger.info(families.toString());
-		logger.info(ngramsForFamilies.toString());
+		logger.debug(families.toString());
+		logger.trace(ngramsForFamilies.toString());
 		int counter = 0;
 		
 		
@@ -436,8 +407,8 @@ public class PostgresRequestUtils {
 			}
 
 			
-			logger.info("Generating rule for family: " + family_id + " (" + s + ") - " + counter + "/" + families.size());
-			logger.info("with condition: " + yaraCondition.toString());
+			logger.debug("Generating rule for family: " + family_id + " (" + s + ") - " + counter + "/" + families.size());
+			logger.debug("with condition: " + yaraCondition.toString());
 			Runnable worker = new YaraRuleGenerator(s, family_id, config, null, dtf, now, counter, families.size(), yaraCondition.toString(), ngrams);
 			executorService.execute(worker);
 		}
@@ -451,7 +422,6 @@ public class PostgresRequestUtils {
 		
 	}
 	
-
 	public static void doFirstInsert(Config config, File[] allSmdaFiles, long minInstructions, boolean firstInsertion) {		
 		try {
 			new HandleStructures().dropAll();
@@ -461,7 +431,7 @@ public class PostgresRequestUtils {
 		logger.info("dropping done");
 		
 		try {
-			new HandleStructures().init();
+			new HandleStructures().init(config.getNs());
 		} catch(SQLException e) {
 			e.printStackTrace();
 		}
@@ -487,7 +457,7 @@ public class PostgresRequestUtils {
 			String alterStmt = "ALTER TABLE" + " ngrams_" + n + "_part " + "SET LOGGED;";
 			try {
 				Statement st = PostgresConnection.INSTANCE.psql_connection.createStatement();
-				logger.info(alterStmt);
+				logger.trace(alterStmt);
 				st.execute(alterStmt);
 				PostgresConnection.INSTANCE.psql_connection.commit();
 			} catch(SQLException e) {
@@ -528,7 +498,9 @@ public class PostgresRequestUtils {
 			//PostgresConnection.INSTANCE.psql_connection.commit();
 		} catch (SQLException e) {
 			logger.error(e.getMessage());
-			if(e.getMessage().contains("already exist")) logger.error("ALREADY EXIST IS OKAY");
+			if(e.getMessage().contains("already exist") || e.getSQLState().equalsIgnoreCase("42P04")) {
+				logger.error("ALREADY EXIST IS OKAY");
+			}
 			if(e.getMessage().contains("does not exist")) {
 				logger.error("database was not created");
 				throw new UnsupportedOperationException();
@@ -546,10 +518,21 @@ public class PostgresRequestUtils {
 		ResultSet rs = st.getResultSet();
 		rs.next();
 		String test = rs.getString(1);
-		logger.info("we are now in the database: " + test + " and this is unchangeable");
+		logger.debug("we are now in the database: " + test + " and this is unchangeable");
 		/*
 		 * testing end
 		 */
+		
+		/*
+		 * enable these optimizations. (warning, only per session enabled.)
+		 */
+		st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+		st.execute("SET enable_partition_pruning = on;");
+		
+		st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+		st.execute("SET enable_partitionwise_aggregate = on;");
+		
+		PostgresConnection.INSTANCE.psql_connection.commit();
 	}
 
 	public HashMap<String, List<String>> getSamplesForFamilies() throws SQLException {
@@ -573,6 +556,37 @@ public class PostgresRequestUtils {
 		return ret;
 	}
 
+	
+	public void writeElementToBlacklist(String s) throws SQLException {
+		final String query = "INSERT INTO blacklist VALUES (?) ON CONFLICT DO NOTHING;";
+		PreparedStatement pst = PostgresConnection.INSTANCE.psql_connection.prepareStatement(query);
+		pst.setString(1, s.toLowerCase());
+		pst.execute();
+		PostgresConnection.INSTANCE.psql_connection.commit();
+	}
 
+	
+	public boolean isStringAlreadyInBlacklist(String s) throws SQLException {
+		final String query = "SELECT concat FROM blacklist WHERE concat = ?;";
+		PreparedStatement pst = PostgresConnection.INSTANCE.psql_connection.prepareStatement(query);
+		pst.setString(1, s.toLowerCase());
+		pst.execute();
+		ResultSet rs = pst.getResultSet();
+		if(rs.next() == false) {
+			return false;
+		} else {
+			return true;
+		}
+	}
+
+	public int getBlacklistSize() throws SQLException {
+		final String query = "SELECT COUNT(concat) FROM blacklist;";
+		PreparedStatement pst = PostgresConnection.INSTANCE.psql_connection.prepareStatement(query);
+		pst.execute();
+		ResultSet rs = pst.getResultSet();
+		rs.next();
+		PostgresConnection.INSTANCE.psql_connection.commit();
+		return rs.getInt(1);
+	}
 
 }

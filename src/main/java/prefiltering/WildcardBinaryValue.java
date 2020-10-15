@@ -15,7 +15,9 @@ import utils.HexTools;
 public class WildcardBinaryValue extends Prefilter {
 
 	private static final Logger logger = LoggerFactory.getLogger(WildcardBinaryValue.class);
-	
+	private static final String regex = "(?<dwordoffset>0x[a-fA-F0-9]+)";
+	private static final Pattern pattern = Pattern.compile(regex);
+
 	/*
 	 * Concept and Instruction Opcodes widely forked from python code from Daniel Plohmann.
 	 */
@@ -33,16 +35,11 @@ public class WildcardBinaryValue extends Prefilter {
 		}
 		if(! (ins.getMnemonics().get(1).startsWith("0x") || ins.getMnemonics().get(1).contains(", 0x"))) {
 			return ins.getOpcodes();
-		}
-		
-		String operands = ins.getMnemonics().get(1);
-		
-		String regex = "(?<dwordoffset>0x[a-fA-F0-9]+)";
-		
+		}		
+
 		String escaped_sequence = ins.getOpcodes();
 		StringBuilder ret = new StringBuilder();
 		
-		Pattern pattern = Pattern.compile(regex);
 		Matcher matcher = pattern.matcher(ins.getMnemonics().get(1));
 		
 		if(matcher.find()) {
@@ -50,13 +47,13 @@ public class WildcardBinaryValue extends Prefilter {
 			String dword_offset = matcher.group("dwordoffset").substring(2);
 			long potential_address = 0;
 			try {
-				potential_address = Long.parseLong(dword_offset, 16);
+				potential_address = Long.parseUnsignedLong(dword_offset, 16);
 			} catch (NumberFormatException e) {
-				logger.warn("Detected NumberFormatException for " + dword_offset + " at instruction: " + ins.toString());
-				logger.warn(e.getLocalizedMessage());
-				logger.warn("We continue and skip this address.");
+				logger.error("Detected NumberFormatException for " + dword_offset + " at instruction: " + ins.toString());
+				logger.error(e.getLocalizedMessage());
+				logger.error("We continue and skip this address.");
 				if(!dword_offset.equalsIgnoreCase("ffffffffffffffff")) {
-					logger.warn("Trigger for non-ffffffffffffffff string: " + dword_offset + " - " + ins.toString());
+					logger.error("Trigger for non-ffffffffffffffff string: " + dword_offset + " - " + ins.toString());
 				}
 				return ins.getOpcodes();
 			}
@@ -148,7 +145,7 @@ public class WildcardBinaryValue extends Prefilter {
 				
 				// Since this case is so special we log them all:
 				
-				logger.info("special case during filtering: " + ret.toString() + " was derived from: " + escaped_sequence + " from: " + ins.toString());
+				logger.debug("special case during filtering: " + ret.toString() + " was derived from: " + escaped_sequence + " from: " + ins.toString());
 				return ret.toString();
 				
 			} else {

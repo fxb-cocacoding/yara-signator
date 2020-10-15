@@ -5,13 +5,11 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Scanner;
 import java.util.stream.Stream;
 
 import org.slf4j.Logger;
@@ -27,7 +25,7 @@ import utils.MalpediaVersion;
 public class Utils {
 	private static final Logger logger = LoggerFactory.getLogger(Utils.class);
 	
-	Config getConfig(String configFileName) {
+	public Config getConfig(String configFileName) {
 		Reader configReader = null;
 		Config config = null;
 		try {
@@ -38,7 +36,7 @@ public class Utils {
 			configReader.close();
 		} catch (JsonIOException | IOException e) {
 			e.printStackTrace();
-			logger.error("Your config file could not be processed, is it stored at " + System.getProperty("user.home") + "/.yarasignator.conf ?");
+			logger.error("Your config file could not be processed, is it at the right location? (" + configFileName + ")");
 		} finally {
 			try {
 				configReader.close();

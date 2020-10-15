@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
+import iterative_improvement.IterativeImprovementDataContainer;
 import iterative_improvement.IterativeImprovementSystemFacade;
 import postgres.PostgresRequestUtils;
 import utils.FileFinder;
@@ -66,6 +67,7 @@ public class Main {
 	     */
 	    try {
 			config = new Utils().getConfig(configFileName);
+			IterativeImprovementDataContainer.INSTANCE.setConfig(config);
 		} catch (Exception e) {
 			LOGGER.error(e.getLocalizedMessage());
 			if(config == null) {
@@ -141,7 +143,6 @@ public class Main {
 				tmpSmdaFiles.add(new File(s));
 			}
 			allSmdaFiles = tmpSmdaFiles.toArray(new File[tmpSmdaFiles.size()]);
-			LOGGER.info(allSmdaFiles.toString());
 		} catch (IOException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
@@ -244,13 +245,17 @@ public class Main {
 			info.append("YARA-SIGNATOR " + Versioning.INSTANCE.VERSION + " CSV REPORT " + dateFolder + "\n");
 			info.append("Results are compiled with the config:\n");
 			info.append("WildcardConfig:\n");
+			
 			for(WildcardConfig c: config.getWildcardConfigConfig()) {
 				info.append("    " + c.wildcardOperator + "\n");
 			}
+			
 			info.append("RankingConfig:\n");
+			
 			for(RankingConfig c: config.getRankingConfig()) {
 				info.append("    " + c.ranker + "\n");
 			}
+			
 			info.append("\n\n\n");
 			
 			String csv = ngFacade.getCSV();
@@ -291,8 +296,6 @@ public class Main {
 			LOGGER.info("Starting NextGenSystem... Maximum Iteration Level: " + config.ng_recursion_limit);
 			
 			ngFacade.ngAction();
-			
-			
 		}
 		
 		

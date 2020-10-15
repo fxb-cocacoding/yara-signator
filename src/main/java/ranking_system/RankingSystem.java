@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,6 +55,10 @@ public class RankingSystem {
 			}
 		});
 		
+		
+		removeSlowSequences();
+
+		
 		//System.out.println("candidatePoolSize: " + candidatePoolSize + "  -  ngramList.size(): " + ngramList.size());
 		if(ngramList.size() > candidatePoolSize) {
 			//System.out.println(" [][] REMOVAL - size: " + ngramList.size() + "");
@@ -66,6 +71,30 @@ public class RankingSystem {
 		}
 		//System.out.println("ngramList size after removal: " + ngramList.size());
 		return ngramList;
+	}
+
+	
+	private void removeSlowSequences() {
+		/*
+		 * BugFix:
+		 * Remove all Sequences (ngrams are n instructions with opcodes -> 1 sequence) where we have not at least three hex bytes in a row.
+		 */
+		for(int i=ngramList.size()-1; i>=0; i--) {
+			Ngram n = ngramList.get(i);
+			String opcodes = n.getOpcodes().replaceAll("\\s+","");
+			String[] splitted = StringUtils.split(opcodes, '?');
+			boolean remove = true;
+			for(String s: splitted) {
+				// Ensure that at least 6 chars are no '?' because otherwise the YARA Rule would slow down the scanner.
+				if(s.length() >= 6) {
+					remove = false;
+					break;
+				}
+			}
+			if(remove == true) {
+				ngramList.remove(i);
+			}
+		}
 	}
 	
 	public void randomize(Random rnd) {

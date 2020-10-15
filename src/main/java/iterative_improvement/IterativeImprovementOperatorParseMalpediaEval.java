@@ -19,8 +19,8 @@ import main.NextGenConfig;
 import postgres.PostgresRequestUtils;
 import statistics.malpedia_eval.MalpediaEval;
 import statistics.malpedia_eval.ReadMalpediaEval;
-import statistics.yara_results.NgramCreator;
 import utils.SystemExec;
+import yara_generation.NgramCreator;
 
 public class IterativeImprovementOperatorParseMalpediaEval extends IterativeImprovementOperator {
 

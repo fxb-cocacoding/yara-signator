@@ -103,38 +103,9 @@ public class IterativeImprovementSystemFacade {
 				}
 			}
 		}
-		
-		/*
-		 * This can be removed or implemented as a special option:
-		 *
-		NextGenRuleCollectionEntity f1 = NextGenDataContainer.INSTANCE.getBestResultByF1();
-		NextGenRuleCollectionEntity prec = NextGenDataContainer.INSTANCE.getBestResultByPrecision();
-		NextGenRuleCollectionEntity recall = NextGenDataContainer.INSTANCE.getBestResultByRecall();
-
-		writeRules(f1, config.output_path + "/" + dateFolder + "_best_f1");
-		writeRules(prec, config.output_path + "/" + dateFolder + "_best_precision");
-		writeRules(recall, config.output_path + "/" + dateFolder + "_best_recall");
-		
-		 *
-		 */
 	}
 	
-	/*
-	private void writeRules(NextGenRuleCollectionEntity rulesPacket, String output_folder) {
-		logger.info("NextGen Finished!");
-		logger.info("Reading out the data store:");
-		logger.info("storing at: " + output_folder);
-		int counter = 1;
-		for(Entry<String, List<Ngram>> i: rulesPacket.currentSignatures.entrySet()) {
-			new YaraRuleGenerator(i.getKey(), 0, this.config, output_folder, this.dtf,
-				this.now, counter, i.getValue().size(), rulesPacket.currentNGConfig.yara_condition, i.getValue())
-			.generateRule(i.getKey(), 0, this.config, this.dtf, this.now, i.getValue());
-			counter++;
-		}
-		logger.info("\n\n");
 
-	}
-	*/
 	
 	public String getCSV() {
 		StringBuilder sb = new StringBuilder();

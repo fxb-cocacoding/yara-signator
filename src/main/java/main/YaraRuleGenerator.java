@@ -15,12 +15,12 @@ import org.slf4j.LoggerFactory;
 import controller.Controller;
 import converters.ngrams.Ngram;
 import smtx_handler.Instruction;
-import statistics.yara_results.NgramCreator;
 import yara.Rule;
 import yara.RuleCondition;
 import yara.RuleMeta;
 import yara.RuleStrings;
 import yara.YaraRule;
+import yara_generation.NgramCreator;
 
 public class YaraRuleGenerator implements Runnable {
 
@@ -39,8 +39,8 @@ public class YaraRuleGenerator implements Runnable {
 	
 	private String disclaimer =   "    /* DISCLAIMER\n"
 			+ "     * The strings used in this rule have been automatically selected from the\n"
-			+ "     * disassembly of memory dumps and unpacked files, using yara-signator.\n"
-			+ "     * The code and documentation / approach is published here:\n"
+			+ "     * disassembly of memory dumps and unpacked files, using YARA-Signator.\n"
+			+ "     * The code and documentation is published here:\n"
 			+ "     * https://github.com/fxb-cocacoding/yara-signator\n"
 			+ "     * As Malpedia is used as data source, please note that for a given\n"
 			+ "     * number of families, only single samples are documented.\n"
@@ -65,7 +65,7 @@ public class YaraRuleGenerator implements Runnable {
 	}
 	
 	
-	private void generateRule(String family, int family_id, Config config, final DateTimeFormatter dtf, LocalDateTime now, List<Ngram> ngrams) {
+	private void generateRule(String family, Config config, final DateTimeFormatter dtf, LocalDateTime now, List<Ngram> ngrams) {
 		Controller controller = new Controller();
 		if(ngrams.isEmpty()) {
 			logger.info("Empty at: " + family + " - no folder created.");
@@ -108,13 +108,13 @@ public class YaraRuleGenerator implements Runnable {
 		rulemeta.setMalpedia_ref("https://malpedia.caad.fkie.fraunhofer.de/details/" + rule.name.replace('.', '_').replaceFirst("_", "."));
 
 		rulemeta.setMalpedia_rule_date(Versioning.INSTANCE.MALPEDIA_DATE);
-		rulemeta.setMalpedia_version("auto-generated");
+		rulemeta.setMalpedia_version(Versioning.INSTANCE.MALPEDIA_DATE);
 		rulemeta.setMalpedia_hash(Versioning.INSTANCE.MALPEDIA_COMMIT);
 
 		
 		rule.setComment(disclaimer);
 		
-		rulemeta.setMalpedia_license("CC BY-NC-SA 4.0");
+		rulemeta.setMalpedia_license("CC BY-SA 4.0");
 		rulemeta.setMalpedia_sharing("TLP:WHITE");
 		rule.setMeta(rulemeta);
 		
@@ -212,7 +212,7 @@ public class YaraRuleGenerator implements Runnable {
 			}
 		}
 		
-		generateRule(this.family, this.family_id, this.config, this.dtf, this.now, this.ngrams);
+		generateRule(this.family, this.config, this.dtf, this.now, this.ngrams);
 	}
 
 }

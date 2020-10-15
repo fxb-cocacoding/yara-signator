@@ -2,6 +2,7 @@ package postgres;
 
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -11,15 +12,6 @@ import org.slf4j.LoggerFactory;
 public class HandleStructures {
 	
 	private static final Logger logger = LoggerFactory.getLogger(HandleStructures.class);
-	
-	/*
-	private final String createTypeInstruction = "CREATE TYPE instruction AS ("
-			+ "addr_offset BIGINT,"
-			+ "opcodes TEXT,"
-			+ "mnemonic_one TEXT,"
-			+ "mnemonic_two TEXT"
-			+ ");";
-	*/
 	
 	private final String createFamiliesTable = "CREATE TABLE IF NOT EXISTS  families ("
 			+ "id SERIAL PRIMARY KEY,"
@@ -49,102 +41,66 @@ public class HandleStructures {
            // + "malpedia_filepath TEXT "
             + ");";
 	
-	/*
-	private final String createNgramTable = "CREATE TABLE ngrams ("
-            + "id serial PRIMARY KEY,"
-            + "n SMALLINT,"
-            + "score DOUBLE PRECISION,"
-            + "family TEXT NOT NULL UNIQUE,"
-            + "filename TEXT NOT NULL UNIQUE,"
-            + "hash TEXT NOT NULL UNIQUE,"
-            + "concat TEXT NOT NULL UNIQUE,"
-            + "ngram_instructions instruction ARRAY"
-            + ");";
-	*/
-	
-	/*
-	private final String createNgramTable = "CREATE TABLE IF NOT EXISTS ngrams ("
-            // + "id SERIAL NOT NULL,"
-            //+ "n SMALLINT,"
-            + "score SMALLINT,"
-            //+ "family TEXT NOT NULL,"
-            + "sample_id INTEGER NOT NULL REFERENCES samples(id) ON DELETE CASCADE,"// + "filename TEXT NOT NULL,"
-           // + "hash TEXT NOT NULL,"
-            + "concat TEXT NOT NULL,"
-            + "addr_offset BIGINT NOT NULL"
-          // + "concat_id INTEGER NOT NULL REFERENCES concat_placeholder(id) ON DELETE CASCADE,"
-          //  + "addr_offset BIGINT[],"
-          //  + "opcodes TEXT[]," we have all opcodes in concat
-		  //+ "mnemonic_one TEXT[],"
-			//+ "mnemonic_two TEXT[]"
-		 // + "PRIMARY KEY (id, sample_id)"
-            + ");";
-	
-	*/
-	
-	/*
-	 * USING PARTITIONING:
-	 * 
-	 *
-	private final String createNgramTable = "CREATE TABLE IF NOT EXISTS ngrams ("
-			+ "score SMALLINT,"
-			+ "sample_id INTEGER NOT NULL REFERENCES samples(id) ON DELETE CASCADE,"
-			+ "family_id INTEGER NOT NULL REFERENCES families(id) ON DELETE CASCADE,"
-			+ "concat TEXT NOT NULL"
-	//		+ ",addr_offset BIGINT NOT NULL"
-			+ ") PARTITION BY LIST(family_id);";
-	
-	*/
-	
 	private final String createNgramTable = "CREATE UNLOGGED TABLE IF NOT EXISTS ngrams ("
 			+ "score SMALLINT,"
 			+ "sample_id INTEGER NOT NULL REFERENCES samples(id) ON DELETE CASCADE,"
 			+ "family_id INTEGER NOT NULL REFERENCES families(id) ON DELETE CASCADE,"
 			+ "concat TEXT NOT NULL"
-	//		+ ",addr_offset BIGINT NOT NULL"
-			+ ");";
+			// + ") PARTITION BY HASH (concat);";
+			+ ") PARTITION BY RANGE (concat);";
 
 	
-	private final String createConcatTable = "CREATE TABLE IF NOT EXISTS concat_ ("
-			+ "id SERIAL NOT NULL,"
-			+ "concat TEXT NOT NULL UNIQUE,"
-			+ "mnemonic_one TEXT[],"
-			+ "mnemonic_two TEXT[],"
-			+ "PRIMARY KEY (id)"
-			+ ");";
-	
-	//private final String dropTypeInstruction = 	"DROP TYPE  IF EXISTS instruction;";
 	private final String dropFamiliesTable = 	"DROP TABLE IF EXISTS families;";
 	private final String dropSamplesTable = 	"DROP TABLE IF EXISTS samples;";
 	private final String dropNgramTable = 		"DROP TABLE IF EXISTS ngrams;";
-	private final String dropConcatTable = 		"DROP TABLE IF EXISTS concat;";
 	
-	public void dropPartitionedTables(Map<String, Integer> families, List<Integer> allN) throws SQLException {
-		/*
-		 * 
-		 * TODO: IMPLEMENT THIS IN THE NGRAM CREATION STEP!
-		 * 
-		 * 
-		 */
+	public void dropPartitionedTables(List<Integer> allN, int modulus) throws SQLException {
+		
 		Statement st;
 		boolean ret;
 		String statement;
 		
 		for(int n : allN) {
-			for(int s: families.values()) {
+			/*
+			 * Check for hash partitions
+			 */
+			
+			for(int i=0; i<modulus; i++) {
 				
-				statement = "DROP TABLE IF EXISTS ngrams_" + n + "_part_" + s + ";";
+				statement = "DROP TABLE IF EXISTS ngrams_" + n + "_part_m" + i + ";";
 				st = PostgresConnection.INSTANCE.psql_connection.createStatement();
 				logger.info(statement);
 				ret = st.execute(statement);				
 				st.close();
 				
-				statement = "DROP TABLE IF EXISTS aggregated_" + n + "_part_" + s + ";";
+			}
+			
+			PostgresConnection.INSTANCE.psql_connection.commit();
+			
+			/*
+			 * Check for list partitions:
+			 */
+			
+			for(int i = 0; i< 16; i++) {
+				String query = "DROP TABLE IF EXISTS ngrams_" + n + "_part_list_" + Integer.toHexString(i) + ";";
+				logger.info(query);
+				statement = query;
 				st = PostgresConnection.INSTANCE.psql_connection.createStatement();
 				logger.info(statement);
-				ret = st.execute(statement);				
+				st.execute(statement);
 				st.close();
 			}
+			String query = "DROP TABLE IF EXISTS ngrams_" + n + "_part_list_rest;";
+			logger.info(query);
+			statement = query;
+			st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+			logger.info(statement);
+			st.execute(statement);
+			st.close();
+			
+			/*
+			 * Drop the rest
+			 */
 			
 			statement = "DROP TABLE IF EXISTS ngrams_" + n + "_part;";
 			
@@ -160,28 +116,191 @@ public class HandleStructures {
 			ret = st.execute(statement);
 			st.close();
 			
+			PostgresConnection.INSTANCE.psql_connection.commit();
 		}
 		
 		PostgresConnection.INSTANCE.psql_connection.commit();
 	}
 
-	public void createPartinionedNgramTables(List<Integer> allN) throws SQLException {
-		
-		Statement st;
-		boolean ret;
+	public void createHashPartitionedNgramTable(int modulus, int n) throws SQLException {
 
-		for(int n : allN) {
-			String statement = "";
+		Statement st = null;
+		String statement;
 			
+		for(int i = 0; i< modulus; i++) {
+			String query = "CREATE TABLE IF NOT EXISTS ngrams_" + n + "_part_m" + i + " PARTITION OF ngrams_" + n + "_part "
+					+ "FOR VALUES WITH (MODULUS " + modulus + ", REMAINDER " + i + ");";
+			logger.info(query);
+			statement = query;
 			st = PostgresConnection.INSTANCE.psql_connection.createStatement();
 			logger.info(statement);
-			ret = st.execute(statement);
+			st.execute(statement);
 			st.close();
+		}	
+
+		PostgresConnection.INSTANCE.psql_connection.commit();		
+	}
+	
+	public void createRangePartitionedNgramTable(int n) throws SQLException {
+
+		Statement st = null;
+		String statement;
+			
+		for(int i = 0; i< 16; i++) {
+			String query = "CREATE UNLOGGED TABLE IF NOT EXISTS ngrams_" + n + "_part_list_" + Integer.toHexString(i) + " PARTITION OF ngrams_" + n + "_part "
+					+ "FOR VALUES FROM ('#" + Integer.toHexString(i) +  "') TO ('#" + Integer.toHexString(i) + ""
+					+ "ffffffffffffffffffffffffffffffffffffffffffffffffffffffff' );";
+			logger.info(query);
+			statement = query;
+			st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+			logger.info(statement);
+			st.execute(statement);
+			st.close();
+			
+			query = "ALTER TABLE ngrams_" + n + "_part_list_" + Integer.toHexString(i) 
+					+ " ADD CONSTRAINT ngrams_" + n +  "_part_list_" + Integer.toHexString(i)
+					+ " CHECK (concat >= '#" + Integer.toHexString(i) +  "' AND concat <= '#" + Integer.toHexString(i) + ""
+					+ "ffffffffffffffffffffffffffffffffffffffffffffffffffffffff' );";
+
+			logger.info(query);
+			statement = query;
+			st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+			logger.info(statement);
+			st.execute(statement);
+			st.close();
+			
 		}
+		
+		String query = "CREATE UNLOGGED TABLE IF NOT EXISTS ngrams_" + n + "_part_list_rest PARTITION OF ngrams_" + n + "_part "
+				+ "FOR VALUES FROM ('#?') TO ('#?ffffffffffffffffffffffffffffffffffffffffffffffffffffffff');";
+		logger.info(query);
+		statement = query;
+		st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+		logger.info(statement);
+		st.execute(statement);
+		st.close();
+		
+		query = "ALTER TABLE ngrams_" + n + "_part_list_rest"
+				+ " ADD CONSTRAINT ngrams_" + n +  "_part_list_rest"
+				+ " CHECK (concat >= '#?' AND concat <= '#?"
+				+ "ffffffffffffffffffffffffffffffffffffffffffffffffffffffff' );";
+		
+		logger.info(query);
+		statement = query;
+		st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+		logger.info(statement);
+		st.execute(statement);
+		st.close();
+		
+		
+
+		PostgresConnection.INSTANCE.psql_connection.commit();		
+	}
+		
+	public void createRangePartitionedBlacklistTable(String table_name) throws SQLException {
+
+		Statement st = null;
+		String statement;
+		boolean tablesExist = false;
+		try {
+			statement = "CREATE TABLE " + table_name + " (concat TEXT UNIQUE NOT NULL) PARTITION BY RANGE (concat);";
+			logger.info(statement);
+			st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+			st.execute(statement);
+			st.close();
+			PostgresConnection.INSTANCE.psql_connection.commit();
+		} catch(SQLException e) {
+			if(e.getSQLState().equalsIgnoreCase("42P07")) {
+				logger.info("Blacklist already exists, we skip the rest of the creations...");
+				tablesExist = true;
+			} else {
+				e.printStackTrace();
+			}
+		}
+		if(tablesExist) {
+			PostgresConnection.INSTANCE.psql_connection.commit();
+			return;
+		}
+		
+		for(int i = 0; i< 16; i++) {
+			String query = "CREATE TABLE IF NOT EXISTS " + table_name + "_list_" + Integer.toHexString(i) + " PARTITION OF " + table_name + " "
+					+ "FOR VALUES FROM ('" + Integer.toHexString(i) +  "') TO ('" + Integer.toHexString(i) + ""
+					+ "ffffffffffffffffffffffffffffffffffffffffffffffffffffffff' );";
+			statement = query;
+			st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+			logger.info(statement);
+			st.execute(statement);
+			st.close();
+			
+			query = "ALTER TABLE " + table_name + "_list_" + Integer.toHexString(i) 
+					+ " ADD CONSTRAINT " + table_name + "_list_" + Integer.toHexString(i)
+					+ " CHECK (concat >= '" + Integer.toHexString(i) +  "' AND concat <= '" + Integer.toHexString(i) + ""
+					+ "ffffffffffffffffffffffffffffffffffffffffffffffffffffffff' );";
+
+			statement = query;
+			st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+			logger.info(statement);
+			st.execute(statement);
+			st.close();
+			
+		}
+		
+		String query = "CREATE TABLE IF NOT EXISTS " + table_name + "_list_rest PARTITION OF " + table_name + " "
+				+ "FOR VALUES FROM ('?') TO ('?ffffffffffffffffffffffffffffffffffffffffffffffffffffffff');";
+		statement = query;
+		st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+		logger.info(statement);
+		st.execute(statement);
+		st.close();
+		
+		query = "ALTER TABLE " + table_name + "_list_rest"
+				+ " ADD CONSTRAINT " + table_name + "_list_rest"
+				+ " CHECK (concat >= '?' AND concat <= '?"
+				+ "ffffffffffffffffffffffffffffffffffffffffffffffffffffffff' );";
+		
+		statement = query;
+		st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+		logger.info(statement);
+		st.execute(statement);
+		st.close();
+		
 		PostgresConnection.INSTANCE.psql_connection.commit();
 	}
 	
-	public synchronized void init() throws SQLException {
+	public void dropRangePartitionedBlacklistTable(String table_name) throws SQLException {
+
+		Statement st = null;
+		String statement;
+		
+		statement = "DROP TABLE IF EXISTS " + table_name + ";";
+		logger.info(statement);
+		st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+		logger.info(statement);
+		st.execute(statement);
+		st.close();
+		
+		for(int i = 0; i< 16; i++) {
+			String query = "DROP TABLE IF EXISTS " + table_name + "_list_" + Integer.toHexString(i) + ";";
+			logger.info(query);
+			statement = query;
+			st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+			logger.info(statement);
+			st.execute(statement);
+			st.close();			
+		}
+		
+		String query = "DROP TABLE IF EXISTS " + table_name + "_list_rest;";
+		logger.info(query);
+		statement = query;
+		st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+		logger.info(statement);
+		st.execute(statement);
+		st.close();
+		
+		PostgresConnection.INSTANCE.psql_connection.commit();		
+	}
+	
+	public synchronized void init(List<Integer> allN) throws SQLException {
 		PostgresConnection.INSTANCE.psql_connection.commit();
 		Statement st;
 		
@@ -195,25 +314,17 @@ public class HandleStructures {
 		st.execute(createSamplesTable);
 		PostgresConnection.INSTANCE.psql_connection.commit();
 		
-		//st.execute(createConcatTable.replace("concat_", "concat_4"));
-		//st.execute(createConcatTable.replace("concat_", "concat_5"));
-		//st.execute(createConcatTable.replace("concat_", "concat_6"));
-		//st.execute(createConcatTable.replace("concat_", "concat_7"));
-		st = PostgresConnection.INSTANCE.psql_connection.createStatement();
-		logger.info(createNgramTable.replace("ngrams", "ngrams_4_part"));
-		st.execute(createNgramTable.replace("ngrams", "ngrams_4_part"));
+		for (int n: allN) {
+			st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+			logger.info(createNgramTable.replace("ngrams", "ngrams_" + n + "_part"));
+			st.execute(createNgramTable.replace("ngrams", "ngrams_" + n + "_part"));
+		}
 		
-		st = PostgresConnection.INSTANCE.psql_connection.createStatement();
-		logger.info(createNgramTable.replace("ngrams", "ngrams_5_part"));
-		st.execute(createNgramTable.replace("ngrams", "ngrams_5_part"));
-		
-		st = PostgresConnection.INSTANCE.psql_connection.createStatement();
-		logger.info(createNgramTable.replace("ngrams", "ngrams_6_part"));
-		st.execute(createNgramTable.replace("ngrams", "ngrams_6_part"));
+		PostgresConnection.INSTANCE.psql_connection.commit();
 
-		st = PostgresConnection.INSTANCE.psql_connection.createStatement();
-		logger.info(createNgramTable.replace("ngrams", "ngrams_7_part"));
-		st.execute(createNgramTable.replace("ngrams", "ngrams_7_part"));
+		for(int n: allN) {
+			createRangePartitionedNgramTable(n);
+		}
 		
 		/*
 		 * Add functions we needed:
@@ -245,6 +356,8 @@ public class HandleStructures {
 		logger.info(FUNCTION__create_constraint_if_not_exists);
 		st.execute(FUNCTION__create_constraint_if_not_exists);
 		PostgresConnection.INSTANCE.psql_connection.commit();
+		
+		createRangePartitionedBlacklistTable("blacklist");
 	}
 	
 	public synchronized void dropAll() throws SQLException {
@@ -257,13 +370,6 @@ public class HandleStructures {
 		 * 
 		 * 
 		 
-		List<Integer> allN = new ArrayList<Integer>();
-		allN.add(4);
-		allN.add(5);
-		allN.add(6);
-		allN.add(7);
-		
-		 
 		try {
 			Map<String, Integer> families = new PostgresRequestUtils().getFamiliesWithIDs();
 			dropPartitionedTables(families, allN);
@@ -271,8 +377,17 @@ public class HandleStructures {
 			logger.info("error occured when dropping partitioned tables, normal if they were not created before.");
 			logger.debug(e.getMessage());
 		}
+		
 		*/
 		
+		List<Integer> l = new ArrayList<Integer>();
+		l.add(4);
+		l.add(5);
+		l.add(6);
+		l.add(7);
+		dropPartitionedTables(l, 256);
+		
+		PostgresConnection.INSTANCE.psql_connection.commit();
 		
 		st = PostgresConnection.INSTANCE.psql_connection.createStatement();
 		st.execute(dropNgramTable.replace("ngrams", "ngrams_4_part"));
@@ -289,6 +404,8 @@ public class HandleStructures {
 		st = PostgresConnection.INSTANCE.psql_connection.createStatement();
 		st.execute(dropNgramTable.replace("ngrams", "ngrams_7_part"));
 		logger.info(dropNgramTable.replace("ngrams", "ngrams_7_part"));
+		
+		PostgresConnection.INSTANCE.psql_connection.commit();
 		
 		/*
 		 * Drop legacy tables which are deprecated
@@ -316,6 +433,8 @@ public class HandleStructures {
 		st = PostgresConnection.INSTANCE.psql_connection.createStatement();
 		st.execute(dropFamiliesTable);
 		logger.info(dropFamiliesTable);
+		
+		//dropRangePartitionedBlacklistTable();
 		
 		PostgresConnection.INSTANCE.psql_connection.commit();
 		

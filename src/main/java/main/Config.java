@@ -23,6 +23,7 @@ public class Config {
 	
 	public String malpediaVersioningFile = "";
 	
+	
 	public String malpediaEvalScriptOutput = "/tmp/95268496.json";
 	public String resumeFolder = "";
 	
@@ -38,6 +39,8 @@ public class Config {
 	public boolean skipUniqueNgramTableCreation = false;
 	public boolean skipRuleValidation = false;
 	public boolean skipNextGen = false;
+	
+	public boolean makeBlacklistPersistent = true;
 	
 	public int insertion_threads = 16;
 	public int rulebuilder_threads = 8;
@@ -56,6 +59,9 @@ public class Config {
 	public boolean rankingOptimizerEnabled = true;
 	public boolean scoreCommentEnabled = true;
 	public boolean prettifyEnabled = true;
+	
+	public boolean reduceInputForDebugging = false;
+	public boolean permitOverlappingNgrams = true;
 	
 	private LinkedList<WildcardConfig> wildcardConfig = new LinkedList<>();
 	private LinkedList<RankingConfig> rankingConfig = new LinkedList<>();
@@ -99,11 +105,4 @@ public class Config {
 		this.wildcardConfig = wildcardConfig;
 	}
 
-
-	/*
-	 * Deprecated mongo constants
-	 */
-	public int mongoQueryBufferSize = 20000;
-	public boolean reduceInputForDebugging = false;
-	public boolean permitOverlappingNgrams = true;
 }

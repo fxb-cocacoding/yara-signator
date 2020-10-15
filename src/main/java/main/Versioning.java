@@ -10,7 +10,7 @@ public enum Versioning {
 	 */
 	
 	
-	public String VERSION = "0.4.0";
+	public String VERSION = "0.5.0";
 	public String MALPEDIA_COMMIT = "0000000000000000000000000000000000000000";
 	
 	public String MALPEDIA_DATE = "00000000";

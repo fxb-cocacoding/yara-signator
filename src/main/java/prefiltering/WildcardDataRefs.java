@@ -15,22 +15,25 @@ public class WildcardDataRefs extends Prefilter {
 
 	private static final Logger logger = LoggerFactory.getLogger(WildcardDataRefs.class);
 	
+	private static final String regex = "ptr \\[(?<dwordoffset>0x[a-fA-F0-9]+)\\]";
+	
+	// regex64 should also be able to cover 32 bit cases.
+	// I will keep that in an OR in the following if/else to be sure that at least the 32-one works properly
+	private static final String regex64 = "ptr \\[(rip \\+ )?(?<dwordoffset>0x[a-fA-F0-9]+)\\]";
+	
+	private static final Pattern pattern = Pattern.compile(regex);
+	private static final Pattern pattern64 = Pattern.compile(regex64);
+
+	
 	/*
 	 * Concept and Instruction Opcodes widely forked from python code from Daniel Plohmann.
 	 */
 	
 	private static String escapeBinaryPtrRef(Instruction ins) {
-		String regex = "ptr \\[(?<dwordoffset>0x[a-fA-F0-9]+)\\]";
-		
-		// regex64 should also be able to cover 32 bit cases.
-		// I will keep that in an OR in the following if/else to be sure that at least the 32-one works properly
-		String regex64 = "ptr \\[(rip \\+ )?(?<dwordoffset>0x[a-fA-F0-9]+)\\]";
 		
 		String escaped_sequence = ins.getOpcodes();
 		StringBuilder ret = new StringBuilder();
 		
-		Pattern pattern = Pattern.compile(regex);
-		Pattern pattern64 = Pattern.compile(regex64);
 		
 		Matcher matcher = pattern.matcher(ins.getMnemonics().get(1));
 		Matcher matcher64 = pattern64.matcher(ins.getMnemonics().get(1));

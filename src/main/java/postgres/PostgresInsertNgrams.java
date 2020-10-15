@@ -8,6 +8,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -22,6 +23,7 @@ import converters.linearization.Linearization;
 import converters.ngrams.Ngram;
 import json.Generator;
 import main.Config;
+import main.WildcardConfig;
 import prefiltering.PrefilterFacade;
 import smtx_handler.Instruction;
 import smtx_handler.Meta;
@@ -173,8 +175,8 @@ public class PostgresInsertNgrams implements Runnable {
 			
 			if(config.wildcardConfigEnabled) {
 				PrefilterFacade pre = new PrefilterFacade();
-				logger.info("running the prefilter engine");
-				ngrams = pre.prefilterAction(ngrams, config);
+				logger.debug("running the prefilter engine");
+				ngrams = pre.prefilterAction(ngrams, config.getWildcardConfigConfig());
 			}
 			
 			if(!config.duplicatesInsideSamplesEnabled) {
@@ -183,14 +185,14 @@ public class PostgresInsertNgrams implements Runnable {
 				s.addAll(ngrams);
 				ngrams = new ArrayList<>(s);
 				int sizeAfter = ngrams.size();
-				logger.info(metadata.getFamily() + " - " + metadata.getFilename() + " - size_before: " + sizeBefore + " - size_after: " + sizeAfter);
+				logger.debug(metadata.getFamily() + " - " + metadata.getFilename() + " - size_before: " + sizeBefore + " - size_after: " + sizeAfter);
 			}
 
 			if(ngrams.isEmpty()) {
 				System.out.println("no ngrams detected, got null in " + metadata.getFilename());
 				continue;
 			}
-			logger.info("Writing ngrams_" + n + " (size: " + ngrams.size() + ") for " 
+			logger.trace("Writing ngrams_" + n + " (size: " + ngrams.size() + ") for " 
 					+ metadata.getFamily() + " - " + metadata.getFilename() + " into db.");
 			
 			counter.put(n, ngrams.size());
@@ -205,40 +207,6 @@ public class PostgresInsertNgrams implements Runnable {
 		logger.info("Ngram stats: " + counter.toString());
 	}
 
-	public void createPartitionedNgramTable(int family_id, int n) throws SQLException {
-		/*
-		 * 
-		 * TODO: IMPLEMENT THIS IN THE NGRAM CREATION STEP!
-		 * 
-		 * 
-		 */
-		Statement st;
-		String statement;
-			
-				
-		statement = "CREATE TABLE IF NOT EXISTS ngrams_" + n + "_part_" + family_id + " PARTITION OF ngrams_" + n + "_part FOR VALUES IN (" + family_id + ");";
-		st = PostgresConnection.INSTANCE.psql_connection.createStatement();
-		logger.info(statement);
-		st.execute(statement);
-		st.close();
-		
-		//statement = "ALTER TABLE ngrams_" + n + "_part_" + family_id + 
-		//		" ADD CONSTRAINT ngrams_" + n + "_part_" + family_id + " CHECK( family_id = " + family_id + ");";
-		
-		//create_constraint_if_not_exists (t_name text, c_name text, constraint_sql text)
-		statement = "SELECT create_constraint_if_not_exists('ngrams_" + n + "_part_" + family_id + "',"
-						+ "'ngrams_" + n + "_part_" + family_id + "',"
-						+ "'CHECK( family_id = " + family_id + ");');";
-		
-		st = PostgresConnection.INSTANCE.psql_connection.createStatement();
-		logger.info(statement);
-		st.execute(statement);
-		st.close();
-		
-		PostgresConnection.INSTANCE.psql_connection.commit();		
-	}
-
-	
 	private int writeSampleToDatabase(SMDA smda, int family_id) throws SQLException {
 		PreparedStatement pst = PostgresConnection.INSTANCE.psql_connection.prepareStatement("INSERT INTO samples ("
 				+ "family_id , architecture , base_addr , status"
@@ -329,12 +297,11 @@ public class PostgresInsertNgrams implements Runnable {
 
 	private void writeNgramsToDatabase(SMDA smda, List<Ngram> ngrams, int n, int batchSize, int sample_id, int family_id) throws SQLException {
 		
-		
 		/*
 		 * Table Design:
 		 * 
 		 * 	
-		 	
+
 		 	private final String createNgramTable = "CREATE TABLE IF NOT EXISTS ngrams ("
 			+ "score SMALLINT,"
 			+ "sample_id INTEGER NOT NULL REFERENCES samples(id) ON DELETE CASCADE,"
@@ -342,8 +309,7 @@ public class PostgresInsertNgrams implements Runnable {
 			+ "concat TEXT NOT NULL,"
 			+ "addr_offset BIGINT NOT NULL"
 			+ ") PARTITION BY LIST(family_id);";
-			
-			
+
 		 * 
 		 */
 		
@@ -361,36 +327,17 @@ public class PostgresInsertNgrams implements Runnable {
 		for(Ngram ngram: ngrams) {
 			batchCounter++;
 			
-			String concat = "";
-			//Long[] addr_offset = new Long[n];
-			
-			long addr_offset = ngram.getNgramInstructions().get(0).getOffset();
-			
-			//String[] mnemonic_one = new String[n];
-			//String[] mnemonic_two = new String[n];
-			
-			int count = 0;
+			StringBuilder concat = new StringBuilder();
 			
 			for(Instruction i: ngram.getNgramInstructions()) {
-				concat += "#" + i.getOpcodes();
-				//addr_offset[count] = i.getOffset();
-				//mnemonic_one[count] = i.getMnemonics().get(0);
-				//mnemonic_two[count] = i.getMnemonics().get(1);
-				count++;
+				concat.append("#");
+				concat.append(i.getOpcodes());
 			}
 			
-			pstIntoNgramsTable.setString(1, concat);
-			//pst.setString(2, smda.getFamily());
-			//pst.setString(2, smda.getFilename());
-			//pst.setString(4, smda.getSha256());
-			//pst.setShort(4, (short) n);
+			pstIntoNgramsTable.setString(1, concat.toString());
 			pstIntoNgramsTable.setInt(2, sample_id);
 			pstIntoNgramsTable.setInt(3, family_id);
 			pstIntoNgramsTable.setShort(4, (short)0);
-			//pstIntoNgramsTable.setLong(5, addr_offset);
-			//pst.setArray(6,  PostgresConnection.INSTANCE.psql_connection.createArrayOf("bigint", addr_offset));
-			//pst.setArray(7,  PostgresConnection.INSTANCE.psql_connection.createArrayOf("text", mnemonic_one));
-			//pst.setArray(8,  PostgresConnection.INSTANCE.psql_connection.createArrayOf("text", mnemonic_two));
 			
 			try {
 				pstIntoNgramsTable.addBatch();
@@ -398,7 +345,7 @@ public class PostgresInsertNgrams implements Runnable {
 				e.printStackTrace();
 			}
 			
-			if(batchCounter%10000 == 0) {
+			if(batchCounter%30000 == 0) {
 				pstIntoNgramsTable.executeBatch();
 				PostgresConnection.INSTANCE.psql_connection.commit();
 			}
