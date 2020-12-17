@@ -45,7 +45,7 @@ public class HandleStructures {
 			+ "score SMALLINT,"
 			+ "sample_id INTEGER NOT NULL REFERENCES samples(id) ON DELETE CASCADE,"
 			+ "family_id INTEGER NOT NULL REFERENCES families(id) ON DELETE CASCADE,"
-			+ "concat TEXT NOT NULL"
+			+ "concat TEXT NOT NULL COLLATE \"C\""
 			// + ") PARTITION BY HASH (concat);";
 			+ ") PARTITION BY RANGE (concat);";
 
@@ -203,7 +203,7 @@ public class HandleStructures {
 		String statement;
 		boolean tablesExist = false;
 		try {
-			statement = "CREATE TABLE " + table_name + " (concat TEXT UNIQUE NOT NULL) PARTITION BY RANGE (concat);";
+			statement = "CREATE TABLE " + table_name + " (concat TEXT UNIQUE NOT NULL COLLATE \"C\") PARTITION BY RANGE (concat);";
 			logger.info(statement);
 			st = PostgresConnection.INSTANCE.psql_connection.createStatement();
 			st.execute(statement);
@@ -264,6 +264,7 @@ public class HandleStructures {
 		st.execute(statement);
 		st.close();
 		
+						
 		PostgresConnection.INSTANCE.psql_connection.commit();
 	}
 	

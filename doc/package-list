@@ -10,4 +10,8 @@ prefiltering
 ranking_system
 statistics.malpedia_eval
 statistics.yara_results
+tests.postgres_test
+tests.ranking_system
+tests.setup
 utils
+yara_generation

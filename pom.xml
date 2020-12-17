@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.cocacoding</groupId>
   <artifactId>yara-signator</artifactId>
-  <version>0.5.0-SNAPSHOT</version>
+  <version>0.6.0-SNAPSHOT</version>
   <name>yara-signator</name>
   
   <build>
@@ -47,7 +47,7 @@
     <dependency>
       <groupId>com.cocacoding</groupId>
       <artifactId>java2yara</artifactId>
-      <version>0.5.0-SNAPSHOT</version>
+      <version>0.6.0-SNAPSHOT</version>
     </dependency>
     
     
@@ -55,7 +55,7 @@
     <dependency>
       <groupId>com.cocacoding</groupId>
       <artifactId>smda-reader</artifactId>
-      <version>0.5.0-SNAPSHOT</version>
+      <version>0.6.0-SNAPSHOT</version>
     </dependency>
   
 	<!-- https://mvnrepository.com/artifact/org.postgresql/postgresql -->

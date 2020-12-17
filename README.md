@@ -14,9 +14,8 @@ The full chain will create database files up to 100GB very quickly, so you shoul
 
 ## Getting started:
 
-**NEW:** See our new wiki and the installation guide:
-
-https://github.com/fxb-cocacoding/yara-signator/wiki/YARA-Signator-%23-User-Manual-for-Version-0.4.0
+See our new wiki and the installation guide:
+https://github.com/fxb-cocacoding/yara-signator/wiki/YARA-Signator-%23-User-Manual-for-Version-0.6.0
 
 
 ## Workflow
@@ -26,10 +25,9 @@ IMPORTANT: Make sure you have not a database in postgres using the same name as 
 1. Get SMDA reports from your malware pool. (https://github.com/danielplohmann/smda)
 2. Create a valid config file (set folders to smda reports and to your pool, etc).
 3. Start postgresql daemon
-4. Start capstone_server on port 12345
+4. Start capstone_server on port 12345, using the daemonize script
 5. Launch yara-signator (`java -jar target/yara-signator-0.5.0-SNAPSHOT-jar-with-dependencies.jar >> logfile.txt`)
 6. Monitor your log file: `tail -F logfile.txt`
-7. Check if capstone_server crashed, if yes, restart it
 
 
 ## FAQ
@@ -37,13 +35,22 @@ Q: This capstone_server is a C program, why don't you use the capstone bindings 
 A: I had some strange memory leaks (>10GB lost memory) when running many millions of opcodes against capstone over some hours. I couldn't fix them in JAVA and so I created a small program in C which communicates over TCP with other processes. If this process would have any memory leaks, you could simply restart it and the memory would be released back to the OS.
 
 
-## Report
+## Presentation at Botconf 2019:
+See the slides of our presentation for a short introduction of YARA-Signator and how it works:
+https://www.botconf.eu/wp-content/uploads/2019/12/B2019-Bilstein-Plohmann-YaraSignator.pdf
+
+
+## Paper
+See our paper for more information:
+https://journal.cecyf.fr/ojs/index.php/cybin/article/view/24
+
+
+## BS-Thesis
 The approach is described in detail in my BS thesis:
 http://cocacoding.com/papers/Automatic_Generation_of_code_based_YARA_Signatures.pdf <br />
 SHA512: <br /> 0384d6ec497cbfca2ec4a7739337088c8c859e86ca63339fd3d26c8be2176e3378210ac6cbd725d08a2f672e9cb2dcecc09eef2ec2dbc975de726b0b918795b2 <br />
 SHA256: <br />
 4f0530d0da48b394cb0798c434ffc70c33ae351e54c77454c87546d17ec52b60 <br />
-
 
 This project was mainly developed during the writing of the previously mentioned BS thesis. According to this I would like to thank Daniel Plohmann for his great support and helpful ideas during his supervision and beyond, especially regarding to this software project.
 
