@@ -5,7 +5,7 @@ Automatic YARA rule generation for malware repositories. Currently used to build
 
 ## Target Audience
 
-This software is useful for larger organizations like companies or CERTs as well as for indivuduals. It requires only a modern, personal computer (8 cores/threads and 16 GiB recommended) and a curated malware repository. Curated means that all samples are already sorted and clustered to families. Each family can contain various samples. In general the tool works better for unpacked malware because we try to detect special code regions or functions that identify a given family.
+This software is useful for larger organizations like companies or CERTs as well as for indivuduals. It only requires a modern, personal computer (8 cores/threads and 16 GiB recommended) and a curated malware repository. Curated means in this context that all samples are already sorted and clustered to families. Each family can contain various samples. In general the tool works better for unpacked malware because we try to detect special code regions or functions that identify a given family.
 
 
 ## Preconditions
