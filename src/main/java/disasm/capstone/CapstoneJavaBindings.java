@@ -60,7 +60,7 @@ public class CapstoneJavaBindings implements DisassemblerInterface {
 //	}
 //
 	@Override
-	public List<String> getDisassembly(int architecture, int bitness, byte[] opcodes) {
+	public List<String> getDisassembly(int architecture, int bitness, byte[] opcodes, String host, int port) {
 		// TODO Auto-generated method stub
 		return null;
 	}

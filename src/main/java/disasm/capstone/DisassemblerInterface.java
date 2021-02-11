@@ -10,6 +10,6 @@ public interface DisassemblerInterface {
 	
 	public void createHandle() throws Exception;
 	public void closeHandle() throws Exception;
-	public List<String> getDisassembly(int architecture, int bitness, byte[] opcodes) throws Exception;
+	public List<String> getDisassembly(int architecture, int bitness, byte[] opcodes, String host, int port) throws Exception;
 	
 }

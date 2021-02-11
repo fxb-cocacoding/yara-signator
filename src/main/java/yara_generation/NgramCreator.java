@@ -94,7 +94,7 @@ public class NgramCreator {
 		}
 	}
 	
-	private ArrayList<Instruction> generateInstructionsFromConcatString(int i, int bitness, String concatFromDB, String[] concat) {
+	private ArrayList<Instruction> generateInstructionsFromConcatString(int i, int bitness, String concatFromDB, String[] concat, String host, int port) {
 		ArrayList<Instruction> instructions = new ArrayList<>(i);
 		for(int j=0; j<i; j++) {
 			Instruction ins = new Instruction();
@@ -134,7 +134,7 @@ public class NgramCreator {
 								al = new ArrayList<>(Arrays.asList("", ""));
 								break;
 							}
-							al = disasm.getDisassembly(32, 32, Hex.decodeHex(concat[index]));
+							al = disasm.getDisassembly(32, 32, Hex.decodeHex(concat[index]), host, port);
 						} catch(java.net.SocketException | ExceptionInInitializerError e) {
 							if(sleepCounter % messageSleepLimit == 0) {
 								logger.info("Is the server online?");
@@ -219,7 +219,7 @@ public class NgramCreator {
 				String[] concat = concatFromDB.split("#");
 				
 				ArrayList<Instruction> instructions;
-				instructions = generateInstructionsFromConcatString(i, bitness, concatFromDB, concat);
+				instructions = generateInstructionsFromConcatString(i, bitness, concatFromDB, concat, config.capstone_host, config.capstone_port);
 				ngram.setNgramInstructions(instructions);
 				
 				ngram.score = score + occurenceFromDB * 100;
@@ -503,7 +503,7 @@ public class NgramCreator {
 				int i = concat.length - 1;
 				Ngram ngram = new Ngram(i);
 				
-				instructions = generateInstructionsFromConcatString(i, bitness, concatFromDB, concat);
+				instructions = generateInstructionsFromConcatString(i, bitness, concatFromDB, concat, config.capstone_host, config.capstone_port);
 				ngram.setNgramInstructions(instructions);
 				
 				ngram.score = score + occurenceFromDB * 100;
@@ -722,7 +722,7 @@ public class NgramCreator {
 				int i = concat.length - 1;
 				Ngram ngram = new Ngram(i);
 				
-				instructions = generateInstructionsFromConcatString(i, bitness, concatFromDB, concat);
+				instructions = generateInstructionsFromConcatString(i, bitness, concatFromDB, concat, config.capstone_host, config.capstone_port);
 				ngram.setNgramInstructions(instructions);
 				
 				ngram.score = score + occurenceFromDB * 100;
@@ -868,7 +868,7 @@ public class NgramCreator {
 						int n_size = concat.length - 1;
 						Ngram ngram = new Ngram(n_size);
 						
-						instructions = generateInstructionsFromConcatString(n_size, bitness, concatFromDB, concat);
+						instructions = generateInstructionsFromConcatString(n_size, bitness, concatFromDB, concat, config.capstone_host, config.capstone_port);
 						ngram.setNgramInstructions(instructions);
 						
 						ngram.score = score + occurenceFromDB * 100;

@@ -32,6 +32,9 @@ public class Config {
 	public String db_password = "";
 	public String db_name = "caching_db";
 	
+	public String capstone_host = "127.0.0.1";
+	public int capstone_port = 12345;
+	
 	public String yara_signator_version = "0.4.0";
 	
 	public boolean skipSMDAInsertions = false;

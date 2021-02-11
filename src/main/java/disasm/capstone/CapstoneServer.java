@@ -25,7 +25,7 @@ public class CapstoneServer implements DisassemblerInterface {
 	private BufferedReader br;
 	
 	@Override
-	public List<String> getDisassembly(int architecture, int bitness, byte[] opcodes) throws Exception {
+	public List<String> getDisassembly(int architecture, int bitness, byte[] opcodes, String host, int port) throws Exception {
 		List<String> ret = new ArrayList<>();
 		String disassemblyLine = new String();
 		try {
