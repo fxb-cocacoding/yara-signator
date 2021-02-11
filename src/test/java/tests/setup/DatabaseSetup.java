@@ -11,6 +11,9 @@ public class DatabaseSetup {
 	
 	public static Connection createDBConnection(Config config) {
 		System.out.println("creating DBs");
+		
+		PostgresConnection.INSTANCE.setConnectionBeforeDBinit(config.db_user , config.db_password, config.db_connection_string);
+		
 		try {
 			Statement st = PostgresConnection.INSTANCE.psql_connection.createStatement();
 			st.execute("CREATE DATABASE " + config.db_name + "_test");
@@ -24,7 +27,7 @@ public class DatabaseSetup {
 			}
 		}
 		
-		PostgresConnection.INSTANCE.setConnection(config.db_user , config.db_password, config.db_connection_string, config.db_name + "_test");
+		PostgresConnection.INSTANCE.setConnectionAfterDBinit(config.db_user , config.db_password, config.db_connection_string, config.db_name + "_test");
 		return PostgresConnection.INSTANCE.psql_connection;
 	}
 }

@@ -32,7 +32,7 @@ public class Main {
 		final String db_password = "";
 		final String db_name = "botconf_paper_callsandjumps_datarefs_binvalue";
 		
-		PostgresConnection.INSTANCE.setConnection(db_user, db_password, db_connection_string, db_name);
+		PostgresConnection.INSTANCE.setConnectionAfterDBinit(db_user, db_password, db_connection_string, db_name);
 		Connection connection = PostgresConnection.INSTANCE.psql_connection;
 		
 		try {
