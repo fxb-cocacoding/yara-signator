@@ -483,57 +483,59 @@ public class PostgresRequestUtils {
 	
     public void setup_db_handler(Config config) throws SQLException {
 
+	PostgresConnection.INSTANCE.setConnection(config.db_user , config.db_password, config.db_connection_string, config.db_name + sb.toString());
+	
     	StringBuilder sb = new StringBuilder();
-		if(config.wildcardConfigEnabled) {
-			for(WildcardConfig wc : config.getWildcardConfigConfig()) {
-				String s = wc.wildcardOperator;
-				sb.append("_");
-				sb.append(wc.wildcardOperator);
-			}
+	if(config.wildcardConfigEnabled) {
+		for(WildcardConfig wc : config.getWildcardConfigConfig()) {
+			String s = wc.wildcardOperator;
+			sb.append("_");
+			sb.append(wc.wildcardOperator);
 		}
-		
-		Statement st = PostgresConnection.INSTANCE.psql_connection.createStatement();
-		try {
-			st.execute("CREATE DATABASE " + config.db_name + sb.toString());
-			//PostgresConnection.INSTANCE.psql_connection.commit();
-		} catch (SQLException e) {
-			logger.error(e.getMessage());
-			if(e.getMessage().contains("already exist") || e.getSQLState().equalsIgnoreCase("42P04")) {
-				logger.error("ALREADY EXIST IS OKAY");
-			}
-			if(e.getMessage().contains("does not exist")) {
-				logger.error("database was not created");
-				throw new UnsupportedOperationException();
-			}
-		}
-		
-		PostgresConnection.INSTANCE.setConnection(config.db_user , config.db_password, config.db_connection_string, config.db_name + sb.toString());
-
-		
-		/*
-		 * testing start
-		 */
-		st = PostgresConnection.INSTANCE.psql_connection.createStatement();
-		st.execute("SELECT current_database();");
-		ResultSet rs = st.getResultSet();
-		rs.next();
-		String test = rs.getString(1);
-		logger.debug("we are now in the database: " + test + " and this is unchangeable");
-		/*
-		 * testing end
-		 */
-		
-		/*
-		 * enable these optimizations. (warning, only per session enabled.)
-		 */
-		st = PostgresConnection.INSTANCE.psql_connection.createStatement();
-		st.execute("SET enable_partition_pruning = on;");
-		
-		st = PostgresConnection.INSTANCE.psql_connection.createStatement();
-		st.execute("SET enable_partitionwise_aggregate = on;");
-		
-		PostgresConnection.INSTANCE.psql_connection.commit();
 	}
+		
+	Statement st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+	try {
+		st.execute("CREATE DATABASE " + config.db_name + sb.toString());
+		//PostgresConnection.INSTANCE.psql_connection.commit();
+	} catch (SQLException e) {
+		logger.error(e.getMessage());
+		if(e.getMessage().contains("already exist") || e.getSQLState().equalsIgnoreCase("42P04")) {
+			logger.error("ALREADY EXIST IS OKAY");
+		}
+		if(e.getMessage().contains("does not exist")) {
+			logger.error("database was not created");
+			throw new UnsupportedOperationException();
+		}
+	}
+
+
+
+
+	/*
+	 * testing start
+	 */
+	st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+	st.execute("SELECT current_database();");
+	ResultSet rs = st.getResultSet();
+	rs.next();
+	String test = rs.getString(1);
+	logger.debug("we are now in the database: " + test + " and this is unchangeable");
+	/*
+	 * testing end
+	 */
+
+	/*
+	 * enable these optimizations. (warning, only per session enabled.)
+	 */
+	st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+	st.execute("SET enable_partition_pruning = on;");
+
+	st = PostgresConnection.INSTANCE.psql_connection.createStatement();
+	st.execute("SET enable_partitionwise_aggregate = on;");
+
+	PostgresConnection.INSTANCE.psql_connection.commit();
+    }
 
 	public HashMap<String, List<String>> getSamplesForFamilies() throws SQLException {
 		final String query = "SELECT family, array_agg(filename) as filename, cardinality(array_agg(filename)) AS size "
