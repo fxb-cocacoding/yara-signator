@@ -44,15 +44,15 @@ public class NgramCreator {
 
 	DisassemblerInterface disasm;
 	
-	public NgramCreator() {
-		initDisasm();
+	public NgramCreator(String host, int port) {
+		initDisasm(host, port);
 	}
 	
 	private final int sleepTime = 500;
 	private final int messageSleepLimit = 5000;
 
 	
-	private void initDisasm() {
+	private void initDisasm(String host, int port) {
 		//DisassemblerBinding disasm = new DisassemblerBinding();
 		disasm = new CapstoneServer();
 		/*
@@ -62,7 +62,7 @@ public class NgramCreator {
 		int sleepCounter = 0;
 		while(barrier == false) {
 			try {
-				disasm.createHandle();
+				disasm.createHandle(host, port);
 				barrier = true;
 			} catch(java.net.SocketException e) {
 				if(sleepCounter % messageSleepLimit == 0) {
@@ -142,7 +142,7 @@ public class NgramCreator {
 							}
 							try {
 								disasm.closeHandle();
-								disasm.createHandle();
+								disasm.createHandle(host, port);
 							} catch (Exception e2) {
 								logger.error("error when reinitializing the socket");
 								logger.error(e2.getMessage());

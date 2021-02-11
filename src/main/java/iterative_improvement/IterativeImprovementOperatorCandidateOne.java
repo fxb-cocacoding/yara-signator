@@ -49,7 +49,7 @@ public class IterativeImprovementOperatorCandidateOne extends IterativeImproveme
 			int family_id = allFamiliesWithIDs.get(family);
 			
 			try {
-				NgramCreator nyg = new NgramCreator();
+				NgramCreator nyg = new NgramCreator(config.capstone_host, config.capstone_port);
 				List<Ngram> ngrams = nyg.getNgramsForFamily_NextGen_CandidateOne(family_id, config, currentNGConfig);
 				nyg.cleanDisasm();
 				ngramsForFamilies.put(family, ngrams);

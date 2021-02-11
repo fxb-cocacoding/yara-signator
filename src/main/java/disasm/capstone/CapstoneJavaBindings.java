@@ -66,7 +66,7 @@ public class CapstoneJavaBindings implements DisassemblerInterface {
 	}
 
 	@Override
-	public void createHandle() {
+	public void createHandle(String host, int port) {
 		// TODO Auto-generated method stub
 		
 	}

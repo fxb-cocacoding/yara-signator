@@ -203,7 +203,7 @@ public class YaraRuleGenerator implements Runnable {
 	public void run() {
 		if(this.ngrams == null) {
 			try {
-				NgramCreator nyq = new NgramCreator();
+				NgramCreator nyq = new NgramCreator(config.capstone_host, config.capstone_port);
 				ngrams = nyq.getNgramsForFamilyDefault(this.family_id, this.config);
 				nyq.cleanDisasm();
 			} catch (SQLException | DecoderException e) {

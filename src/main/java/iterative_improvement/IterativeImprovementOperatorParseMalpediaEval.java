@@ -74,7 +74,7 @@ public class IterativeImprovementOperatorParseMalpediaEval extends IterativeImpr
 			
 			try {
 				
-				NgramCreator nyg = new NgramCreator();
+				NgramCreator nyg = new NgramCreator(config.capstone_host, config.capstone_port);
 				
 				List<Ngram> ngrams = nyg.getNgramsForFamily_NextGen_ParseMalpediaEval_ReduceFalsePositiveStrategy(family_id, config, currentNGConfig);
 				

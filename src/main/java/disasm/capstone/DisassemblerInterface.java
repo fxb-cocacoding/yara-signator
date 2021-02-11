@@ -8,7 +8,7 @@ public interface DisassemblerInterface {
 	 * Every Disassembler has to fulfill these requirements.
 	 */
 	
-	public void createHandle() throws Exception;
+	public void createHandle(String ip, int port) throws Exception;
 	public void closeHandle() throws Exception;
 	public List<String> getDisassembly(int architecture, int bitness, byte[] opcodes, String host, int port) throws Exception;
 	
