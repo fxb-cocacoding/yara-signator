@@ -12,7 +12,6 @@ import org.slf4j.LoggerFactory;
  */
 
 
-@Deprecated
 public class CapstoneJavaBindings implements DisassemblerInterface {
 	
 	private static final Logger logger = LoggerFactory.getLogger(CapstoneJavaBindings.class);
