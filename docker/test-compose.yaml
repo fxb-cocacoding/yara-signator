@@ -1,0 +1,60 @@
+version: "3.9"
+
+services:
+  yara_signator_postgres_testing:
+    deploy:
+      resources:
+        limits:
+          cpus: 4
+          memory: 4G
+        reservations:
+          cpus: 2
+          memory: 4G
+    image: postgres:13.1
+    container_name: yara_signator_postgres_testing
+    restart: always
+    command:
+      "-c shared_buffers=256MB
+      -c max_connections=200"
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+    networks:
+      - signator_net_testing
+
+  capstone_server_testing:
+    deploy:
+      resources:
+        limits:
+          cpus: 4
+          memory: 1G
+        reservations:
+          cpus: 2
+          memory: 1G
+    container_name: capstone_server_testing
+    build: ./capstone_server
+    networks:
+      - signator_net_testing
+
+  yara_signator_testing:
+    deploy:
+      resources:
+        limits:
+          cpus: 8
+          memory: 12G
+        reservations:
+          cpus: 5
+          memory: 8G
+    depends_on:
+      - yara_signator_postgres_testing
+      - capstone_server_testing
+    container_name: yara_signator_testing
+    build: ./yara_signator_testing
+    volumes:
+      - ./datastore:/root/datastore
+    networks:
+      - signator_net_testing
+
+networks:
+  signator_net_testing:
+    driver: bridge
+

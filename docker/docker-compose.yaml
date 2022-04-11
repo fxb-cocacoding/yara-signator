@@ -1,0 +1,66 @@
+version: "3.9"
+
+services:
+  yara_signator_postgres:
+    deploy:
+      resources:
+        limits:
+          cpus: 4
+          memory: 4G
+        reservations:
+          cpus: 2
+          memory: 4G
+    image: postgres:13.1
+    container_name: yara_signator_postgres
+    restart: always
+    command:
+      "-c shared_buffers=256MB
+      -c max_connections=200"
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+    # Use ports if you want a direct connection to the daemons
+    #ports:
+    #  - "127.0.0.1:5432:5432"
+    networks:
+      - signator_net
+
+  capstone_server:
+    deploy:
+      resources:
+        limits:
+          cpus: 4
+          memory: 1G
+        reservations:
+          cpus: 2
+          memory: 1G
+    container_name: capstone_server
+    build: ./capstone_server
+    # Use ports if you want a direct connection to the daemons
+    #ports:
+    #  - "127.0.0.1:12345:12345"
+    networks:
+      - signator_net
+
+  yara_signator:
+    deploy:
+      resources:
+        limits:
+          cpus: 8
+          memory: 12G
+        reservations:
+          cpus: 5
+          memory: 8G
+    depends_on:
+      - yara_signator_postgres
+      - capstone_server
+    container_name: yara_signator
+    build: ./yara_signator
+    volumes:
+      - ./datastore:/root/datastore
+    networks:
+      - signator_net
+
+networks:
+  signator_net:
+    driver: bridge
+

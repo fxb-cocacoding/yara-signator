@@ -1,0 +1,130 @@
+{
+  "smda_path": "/root/datastore/smda_report_output/",
+  "malpedia_path": "/root/datastore/malpedia/",
+  "output_path": "/root/datastore/yara-output/",
+  "yaraBinary": "/root/git/yara/yara",
+  "yaracBinary": "/root/git/yara/yarac",
+  "malpediaEvalScript": "/root/yara-signator/src/main/python/malpedia_evaluation.py",
+  "malpediaVersioningFile": "/root/datastore/VERSIONING.TXT",
+  "malpediaEvalScriptOutput": "/tmp/95268496.json",
+  "reduceInputForDebugging": false,
+  "resumeFolder": "",
+
+  "db_connection_string": "jdbc:postgresql://yara_signator_postgres/",
+  "db_user": "postgres",
+  "db_password": "",
+  "db_name": "release_0_6_0",
+
+  "capstone_host": "capstone_server",
+  "capstone_port": 12345,
+
+  "yara_signator_version": "0.6.0",
+
+  "skipSMDAInsertions": false,
+  "skipUniqueNgramTableCreation": false,
+  "skipYaraRuleGeneration": false,
+  "skipRuleValidation": false,
+  "skipNextGen": false,
+
+  "insertion_threads": 8,
+  "rulebuilder_threads": 4,
+
+  "shuffle_seed": 12345678,
+  "minInstructions": 100,
+  "batchSize": 5000,
+  "instructionLimitPerFamily": 15000000,
+  "ng_recursion_limit": 1,
+
+  "reportStatistics": true,
+  "reportFileName": "report.csv",
+  "duplicatesInsideSamplesEnabled": false,
+  "permitOverlappingNgrams": true,
+  "wildcardConfigEnabled": true,
+  "rankingOptimizerEnabled": true,
+  "scoreCommentEnabled": true,
+  "prettifyEnabled": true,
+
+  "wildcardConfig": [
+    {
+      "wildcardOperator": "callsandjumps"
+    },
+    { 
+      "wildcardOperator": "datarefs"
+    },
+    { 
+      "wildcardOperator": "binvalue"
+    }
+  ],
+
+  "rankingConfig": [
+    {
+      "ranker": "rankPerNgramScore",
+      "limit": 5000
+    }
+  ],
+
+  "nextGenConfig": [
+    { 
+      "rankingConfig": [
+        {
+          "ranker": "rankPerNgramScore",
+          "limit": 5000
+        }
+      ],
+      "nextGenOperator": "CandidateOne",
+      "rounds": 1,
+      "permitOverlappingNgrams": false,
+      "yara_condition": "7 of them",
+      "yara_condition_limit": 7,
+      "nextGenBreakout": {
+        "score": "f_score",
+        "score_limit": 0.9,
+        "FPs_allowed": true
+      }
+    },
+    { 
+      "rankingConfig": [
+        {
+          "ranker": "rankPerNgramScore",
+          "limit": 5000
+        }
+      ],
+      "nextGenOperator": "ParseMalpediaEval",
+      "rounds": 10,
+      "permitOverlappingNgrams": false,
+      "yara_condition": "1 of them",
+      "yara_condition_limit": 7,
+      "nextGenBreakout": {
+        "score": "f_score",
+        "score_limit": 0.9,
+        "FPs_allowed": true
+      }
+    },
+    { 
+      "rankingConfig": [
+        {
+          "ranker": "rankPerNgramScore",
+          "limit": 5000
+        }
+      ],
+      "nextGenOperator": "CandidateOne",
+      "rounds": 2,
+      "permitOverlappingNgrams": false,
+      "yara_condition": "7 of them",
+      "yara_condition_limit": 7,
+      "nextGenBreakout": {
+        "score": "f_score",
+        "score_limit": 0.9,
+        "FPs_allowed": true
+      }
+    }
+  ],
+
+  "n": [
+    4,
+    5,
+    6,
+    7
+  ]
+
+}
